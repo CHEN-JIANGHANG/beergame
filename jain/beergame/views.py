@@ -49,7 +49,11 @@ def join_game(request, game):
     game = get_object_or_404(Game, pk=game)
 
     roles = Team.ROLE_CHOICES 
-    return render_to_response('join_game.html', {'game':game,'roles':roles}) 
+    return render_to_response('join_game.html', {
+                                                    'game':game,
+                                                    'roles':roles
+                                                },
+                                                context_instance=RequestContext(request)) 
 
 def game(request, game, role):
     game = get_object_or_404(Game, pk=game)
@@ -81,7 +85,8 @@ def game(request, game, role):
                                             'period': period,
                                             'all_periods':all_periods,
                                             'display_orders':settings.DISPLAY_ORDERS,
-                                            })
+                                            },
+                                            context_instance=RequestContext(request))
 
 def _get_period(game, role, period):
     #game = get_object_or_404(Game, pk=game)
@@ -313,15 +318,15 @@ def ajax(request, game, role):
         if shipment < period.demand:
             backlog = period.demand - shipment
             period.backlog = period.backlog + backlog
-            period.cost = period.cost + Decimal(str(period.backlog)) 
+            #period.cost = period.cost + Decimal(str(period.backlog)) 
 
         # reduce backlog if more sent
         if shipment > period.demand:
             if period.backlog != 0:
                 period.backlog = period.backlog - (shipment - period.demand)
 
-        # inventory costs
-        period.cost = period.cost + Decimal(str(period.inventory * .5))
+        # inventory and backlog costs
+        period.cost = period.cost + Decimal(str(period.inventory * .5)) + Decimal(str(period.backlog))
 
         # total costs
         period.cumulative_cost = period.cumulative_cost + period.cost
@@ -382,7 +387,8 @@ def cp(request):
                                                 'now': datetime.now(),
                                                 'games': games,
                                                 'game_form': GameForm(),
-                                            })
+                                            },
+                                            context_instance=RequestContext(request))
 
 def get_chart(request):
     data = request.REQUEST.copy()
@@ -494,4 +500,5 @@ def js_test(request):
                                                 'period': period,
                                                 'all_periods':all_periods,
                                                 'display_orders':settings.DISPLAY_ORDERS,
-                                            })
+                                            },
+                                            context_instance=RequestContext(request))

@@ -1,29 +1,38 @@
-/* visual elements */
+/* VISUAL ELEMENTS */
 
 $('.step_wrapper').corner("10px");
 $('.step').corner("8px");
 $('.lead_tile').corner();
 
-/* end visual elements */
+/* END VISUAL ELEMENTS */
 
-/* constants */
+/* CONSTANTS */
 CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
 FADE_SPEED = 700; // milliseconds for fade
-/* end constants */
+/* END CONSTANTS */
 
-/* configuration */
-// configure AJAX for future requests
+/* CONFIGURATION */
+// if AJAX_URL is already set, we'll use that
+// this is used for testing page
 if (typeof(window.AJAX_URL) == "undefined") {
     AJAX_URL = 'ajax/'; 
 }
 
+// configure AJAX for future requests
 $.ajaxSetup({
     url: AJAX_URL, 
     cache: false,
     type: 'POST',
     dataType: 'json'
 });
-/* end configuration */
+/* END CONFIGURATION */
+
+/*
+ * outputs a message using jGrowl
+ */
+function display_message(msg) {
+    $.jGrowl(msg);
+}
 
 /*
  * updates the status message at top of screen
@@ -241,16 +250,33 @@ function wait_for_teams() {
 
     if (get_period() == 0) {
         next_per_btn.val('Start Game');
+        next_per_btn.attr('disabled',false);
     }
     else {
         // wait for other teams to finish
         next_per_btn.val('Waiting for Other firms to Order');
+        $('#order_btn').everyTime(CHECK_INTERVAL, function() {
+             $.ajax({
+                    data: {
+                            check: 'teams_ready',
+                            period: get_period()
+                    },
+                    success: function(data, textStatus) {
+                        if ('teams_ready' in data) {
+                            if (data['teams_ready']) {
+                                var per_btn = $('#next_period_btn');
+                                per_btn.attr('disabled', false);
+                                per_btn.val('Start next period');
+                                $('#order_btn').stopTime();
+                            }
+                        }
+                        else if ('error' in data) {
+                            log_error(data['error']);
+                        }
+                    }
+            });
+        });
     }
-
-
-    $('#order_btn').everyTime(CHECK_INTERVAL, function() {
-    });
-
 }
 
 
@@ -517,6 +543,21 @@ function reload_period_table() {
 
 $(document).ready(function() {
 
+    // setup jquery ui datepicker for control panel
+    $('#datetime').datepicker({
+        duration: '',
+        showTime: true,
+        constrainInput: false,
+        stepMinutes: 10,
+        stepHours: 1,
+        altTimeField: '',
+        time24h: false
+    });
+
+    // configure jGrowl
+    $.jGrowl.defaults.position = "bottom-right";
+
+    // for control panel, generating chart select
     $('#chart-select').change(function() {
         if ($(this).val() != 'none') {
             $('#chart-output').text('loading chart...');
@@ -533,6 +574,7 @@ $(document).ready(function() {
     });
 
     
+    // check if on game page, if so setup the game
     if ($('#next_period_btn').get().length == 1) {
         set_buttons();
         set_timers();

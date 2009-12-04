@@ -11,6 +11,10 @@ MANAGERS = ADMINS
 
 APP_DIR = "/home/taylor/projects/beergame/jain"
 
+INTERNAL_IPS = (
+
+)
+
 DATABASE_ENGINE = 'mysql'           # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
 DATABASE_NAME = 'beergame'             # Or path to database file if using sqlite3.
 TEST_DATABASE_NAME = 'test_beergame'
@@ -73,6 +77,13 @@ TEMPLATE_DIRS = (
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
     "%s/beergame/templates"
+)
+
+TEMPLATE_CONTEXT_PROCESSORS = (
+    "django.core.context_processors.auth",
+    "django.core.context_processors.debug",
+#    "django.core.context_processors.i18n",
+    "django.core.context_processors.media",
 )
 
 INSTALLED_APPS = (

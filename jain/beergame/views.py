@@ -443,9 +443,11 @@ def output_csv(request):
 
     data = request.REQUEST.copy()
 
-    start_time = datetime.strptime("%s %s %s %s %s %s" % (data['month'], data['day'],
-                    data['year'], data['hour'], data['minute'], data['ampm']),
-                                    "%m %d %Y %I %M %p")
+    # start_time = datetime.strptime("%s %s %s %s %s %s" % (data['month'], data['day'],
+    #                 data['year'], data['hour'], data['minute'], data['ampm']),
+    #                                 "%m %d %Y %I %M %p")
+    
+    start_time = datetime.strptime(data['datetime'], "%m/%d/%Y %I:%M %p")
 
 
     writer = csv.writer(response)

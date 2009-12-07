@@ -107,12 +107,31 @@ def ajax(request, game, role):
         return HttpResponse(json.dumps({data['get']:value, 'display_orders':settings.DISPLAY_ORDERS}),
                 mimetype='text/javascript')
 
+
+    # returns the latest period number
+    elif data.has_key('current'):
+        team = get_object_or_404(Team, game=game, role=role)
+        latest_period = Period.objects.filter(team=team).order_by('-number')[0]
+        if data['current'] == 'period':
+            return HttpResponse(json.dumps({'period':latest_period.number}), 
+                mimetype='text/javascript')
+        if data['current'] == 'inventory':
+            return HttpResponse(json.dumps({'inventory':latest_period.inventory}), 
+                mimetype='text/javascript')
+
     elif data.has_key('period') and data.has_key('check'):
         if data['check'] == 'teams_ready':
             teams = Team.objects.filter(game=game)
+            not_ready = []
             for team in teams:
                 if team.last_completed_period != int(data['period']):
-                    return HttpResponse(json.dumps({'teams_ready':False}),
+                    not_ready.append(team.role)
+
+            if len(not_ready) > 0:
+                return HttpResponse(json.dumps( {
+                                                'teams_ready': False,
+                                                'waiting_for': not_ready 
+                                                }),
                             mimetype='text/javascript')
             return HttpResponse(json.dumps({'teams_ready':True}),
                         mimetype='text/javascript')

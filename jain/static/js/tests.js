@@ -48,6 +48,10 @@ $(document).ready(function() {
         game._resetPeriod();
         equals(game.getPeriod(), 0, 'check reset period');
         equals(game.getInventory(), 12, 'check getInventory');
+        game.setInventory(20);
+        equals(game.getInventory(), 20, 'check setInventory');
+        game._resetInventory();
+        equals(game.getInventory(), 12, 'check resetInventory');
     });
 });
 

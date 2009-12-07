@@ -18,13 +18,17 @@ if (typeof(window.AJAX_URL) == "undefined") {
     AJAX_URL = 'ajax/'; 
 }
 
-// configure AJAX for future requests
+// configure AJAX 
 $.ajaxSetup({
     url: AJAX_URL, 
     cache: false,
     type: 'POST',
     dataType: 'json'
 });
+
+// configure jGrowl
+$.jGrowl.defaults.position = "bottom-right";
+
 /* END CONFIGURATION */
 
 /*
@@ -41,12 +45,445 @@ function update_status(message) {
     $('#status-message').text(message);
 }
 
+function Game() {
+    // ATTRIBUTES 
+    this.period = undefined;
+    this.inventory = undefined;
+    this.backlog = undefined;
+    this.last_clicked = undefined;
+
+    // METHODS
+    // get the current inventory 
+    this.get_inventory = function() {
+        if (this.inventory !== undefined) {
+            return this.inventory;
+        }
+        else {
+            // try to get inventory from
+            // the HTML
+            var inv_elm = $('#inv_amt');
+            var inv_num = parseInt(inv_elm.text());
+
+            if (isNaN(inv_num)) {
+                // an error?
+                // can't get inventory from HTML
+                // get inventory from server
+                log_error('Inventory was not an integer');
+                this._reset_inventory();
+                return this.inventory;
+            }
+            else {
+                this.inventory = inv_num;
+                return this.inventory; 
+            }
+        }
+    };
+
+    this.set_inventory = function(val) {
+        this.inventory = val; 
+        var inv_elm = $('#inv_amt');
+        inv_elm.text(val);
+    };
+
+    // grabs canonical period from server
+    this._reset_inventory = function() {
+        var self = this;
+        // get period from server
+        $.ajax({
+            async: false,
+            data: {current: 'inventory'},
+            success: function(data, textStatus) {
+                if ('error' in data) {
+                    log_error(data['error']);
+                }
+                if ('inventory' in data) {
+                    self.inventory = parseInt(data['inventory']);
+                }
+            }
+        });
+    };
+
+    this.get_period = function() {
+        var self = this;
+        if (this.period !== undefined) {
+            return this.period;
+        }
+        else {
+            this._reset_period();
+        }
+    };
+
+    this._set_period = function(period) {
+        (!period) ? period = this.period : null; 
+        var per_elm = $('#period_num');
+        per_elm.text(period);
+    };
+
+    this.increment_period = function() {
+        this.period++;
+        this._set_period();
+    };
+
+    // grabs canonical period from server
+    this._reset_period = function() {
+        var self = this;
+        // get period from server
+        $.ajax({
+            async: false,
+            data: {current: 'period'},
+            success: function(data, textStatus) {
+                if ('error' in data) {
+                    log_error(data['error']);
+                }
+                if ('period' in data) {
+                    self.period = parseInt(data['period']);
+                }
+            }
+        });
+    };
+
+    this.get_shipment1 = function() {
+        return parseInt($('#ship1_amt').text()); 
+    };
+
+    this.set_shipment1 = function(val) {
+        $('#ship1_amt').text(val);
+    };
+
+    this.get_order = function() {
+        var order = parseInt($('#order_amt').text()); 
+        if (isNaN(order)) {
+            log_error('order was not a number');
+            return false;
+        }
+        return order;
+    };
+
+    this.set_order = function() {
+        $('#order_amt').text(order);
+    };
+
+    this.get_amt_to_order = function() {
+        return parseInt($('#amt_to_order').val());
+    };
+
+    this.set_amt_to_order = function(val) {
+        $('#amt_to_order').val(val);
+    };
+
+    this.get_amt_to_ship = function() {
+        return $('#amt_to_ship').val();
+    };
+
+    this.set_amt_to_ship = function(val, select) {
+        var shipment_input = $('#amt_to_ship')
+        shipment_input.val(val);
+
+        if (select) {
+            shipment_input.select(); 
+        }
+    };
+
+    this.get_shipment_recommendation = function(backlog, inventory, order) {
+        // backlog
+        if (backlog > 0) {
+            // can deliver both backlog and order
+            if (inventory >= (backlog + order)) {
+                return backlog + order;
+            }
+            // can't deliver full backlog and order
+            else {
+                return inventory; 
+            }
+        }
+        // no backlog
+        else {
+            // order is more than inventory
+            if (order > inventory) {
+                return inventory; 
+            }
+            // order is less than inventory
+            else {
+                return order;
+            }
+        }
+    };
+
+    this.get_backlog = function() {
+        if (this.backlog !== undefined) {
+            return this.backlog;
+        }
+        else {
+            this._reset_backlog();
+            return this.backlog;
+        }
+    };
+
+    this.set_shipment_recommendation = function() {
+        var backlog = this.get_backlog();
+        var amount = this.get_shipment_recommendation(this.get_backlog(),
+                                                    this.get_inventory(),
+                                                    this.get_order());
+        this.set_amt_to_ship(amount, true);
+    };
+
+    this._reset_backlog = function() {
+        var self = this;
+        $.ajax({
+            async: false,
+            data: {
+                    get: 'backlog',
+                    period: self.get_period()
+            }, 
+            success: function(data, textStatus) {
+                if ('error' in data) {
+                    log_error(data['error']);
+                }
+                if ('backlog' in data) {
+                    self.backlog = parseInt(data['backlog']);
+                }
+
+            }
+        });
+    };
+
+    this.check_if_teams_ready = function() {
+        var self = this;
+        $.ajax({
+                data: {
+                        check: 'teams_ready',
+                        period: self.get_period()
+                },
+                success: function(data, textStatus) {
+                    if ('teams_ready' in data) {
+                        if (data['teams_ready']) {
+                            var per_btn = $('#next_period_btn');
+                            per_btn.attr('disabled', false);
+                            per_btn.val('Start next period');
+                            $('#order_btn').stopTime();
+                        }
+                        else if ('waiting_for' in data) {
+                            for (var team in data['waiting_for']) {
+                                display_message('Waiting for '+data['waiting_for'][team]);
+                            }
+                        }
+                    }
+                    else if ('error' in data) {
+                        log_error(data['error']);
+                    }
+                }
+        });
+    };
+
+    this.listen_for_can_ship = function() {
+        var self = this;
+        $('#step2_btn').everyTime(CHECK_INTERVAL, function() {
+            $.ajax({
+                data: {
+                        check: 'can_ship',
+                        period: self.get_period()
+                },
+                success: function(data, textStatus) {
+                    if ('can_ship' in data) {
+                        if (data['can_ship']) {
+                            $('#ship_btn').attr('disabled',false); 
+                            $('#ship_btn').val('Ship'); 
+                            $('#step2_btn').stopTime();
+                            display_message('You can now ship');
+                        }
+                    }
+                    else if ('error' in data) {
+                        log_error(data['error']);
+                    }
+                    else {
+                        log_error('listen for can ship returned invalid data');
+                    }
+                }
+            });
+        });
+    };
+
+    this.listen_for_can_order = function() {
+        var self = this;
+        $('#step3_btn').everyTime(CHECK_INTERVAL, function() {
+            $.ajax({
+                    data: {
+                            check: 'can_order',
+                            period: self.get_period()
+                    },
+                    success: function(data, textStatus) {
+                        if ('error' in data) {
+                            log_error(data['error']);
+                        }
+                        else {
+                            if ('can_order' in data) {
+                                if (data['can_order']) {
+                                    $('#order_btn').attr('disabled',false); 
+                                    $('#order_btn').val('Order'); 
+                                    $('#step3_btn').stopTime();
+                                    display_message('You can now order');
+                                }
+                            }
+                        }
+                    }
+            });
+        });
+    };
+
+    this.setButtons = function() {
+        var self = this;
+        if ($('#next_period_btn').get().length == 1) {
+            $.ajax({
+                    data:   { 
+                                query: 'last_clicked'
+                            },
+                    success: function(data, textStatus) {
+                        var btns = {
+                                        start:  'next_period_btn',
+                                        step1:  'step1_btn',
+                                        step2:  'step2_btn',
+                                        ship:   'ship_btn',
+                                        step3:  'step3_btn',
+                                        order:  'order_btn'
+                                    };
+                        var last_clicked = data['last_clicked'];
+                        var start_index = 0;
+                        if (last_clicked == 'none') {
+                            for (var btn in btns) {
+                                $('#'+btns[btn]).attr('disabled',true);
+                            }
+                            wait_for_teams();
+                        }
+                        else if (last_clicked in btns) {
+                            var disable = true;
+                            for (var btn in btns) {
+                                $('#'+btns[btn]).attr('disabled',disable);
+                                if (!disable) { disable = true; }
+                                if (btn == last_clicked) { disable = false; }
+                            }
+                            if (!$('#ship_btn').attr('disabled')) {
+                                $('#ship_btn').attr('disabled',true); 
+                                $('#ship_btn').val('waiting...'); 
+
+                                self.set_shipment_recommendation();
+
+                                self.listen_for_can_ship();
+                            }
+                            else if (!$('#order_btn').attr('disabled')) {
+                                $('#order_btn').attr('disabled', true); 
+                                $('#order_btn').val('waiting...'); 
+                                
+                                self.listen_for_can_order();
+                            }
+                        }
+                        else {
+                            log_error('last clicked returned an invalid button: '+last_clicked);
+                        }
+                    }
+            });
+        }
+    };
+
+    this.listen_for_shipment = function() {
+        var self = this;
+        // starts listening for next shipment
+        $('#step1').everyTime(CHECK_INTERVAL, function() {
+            $.ajax({
+                    data: {
+                        get: 'shipment_2',
+                        period: self.get_period()
+                    },
+                    success: function(data, textStatus) {
+                        if ('shipment_2' in data && data['shipment_2'] != null) {
+                            $('#step1').stopTime();
+                            $('#shipment2').remove();
+                            $('#shipment1').after('<div id="shipment2" class="lead_tile">' + 
+                                '<h4>Shipment #2</h4><p id="ship2_amt">'+data['shipment_2']+'</p></div>');
+
+                            $('#shipment2').corner();
+                           
+                            // if shipment arrives after step3, table will
+                            // be updated
+                            $.ajax({
+                                    data: {
+                                        query: 'last_clicked',
+                                        period: self.get_period()
+                                    },
+                                    success: function(data, textStatus) {
+                                        if ('last_clicked' in data) {
+                                            var last_clicked = data['last_clicked'];
+                                            if (last_clicked in ['step3','order','none']) {
+                                                self.reload_period_table();
+                                            }
+                                        }
+                                        else if ('error' in data) {
+                                            log_error(data['error']);
+                                        }
+                                    }
+                            });
+                        }
+                        else if ('error' in data) {
+                            log_error(data['error']);
+                        }
+                    }        
+            });
+        });
+    };
+
+    this.listen_for_order = function() {
+        var self = this;
+        $('#step2').everyTime(CHECK_INTERVAL,function() {
+            $.ajax({
+                    data: {
+                        period: self.get_period(),
+                        get: 'order_2'
+                    },
+                    success: function(data, textStatus) {
+                        if ('order_2' in data && data['order_2'] != null) {
+                            $('#step2').stopTime();
+                            if ('display_orders' in data) {
+                                if (data['display_orders']) {
+                                    $('#order2_amt').text(data['order_2']);
+                                }
+                            }
+                            $('#order2_amt').text('');
+                        }
+                        else if ('error' in data) {
+                            log_error(data['error']);
+                        }
+                    }
+            });
+        });
+    };
+
+    this.reload_period_table = function() {
+        var self = this;
+        $.ajax({
+                dataType: 'html',
+                data: {
+                        html: 'period_table',
+                        period: this.get_period()
+                },
+                success: function(result, textStat) {
+                    $('#period_table').html(result);
+                }
+        });
+    }
+
+    // constructors
+    this._resetPeriod();
+    this._resetInventory();
+    this._resetBacklog();
+}
+
 /*
  * get current period based on browser value 
  */
 function get_period() {
     var per_elm = $('#period_num');
     var per_num = per_elm.text(); 
+
+    // period says "Just started"
     if (isNaN(per_num)) {
         return 0;
     }
@@ -242,9 +679,6 @@ function check_if_teams_ready() {
  * waits for other teams to order to begin next period
  */
 function wait_for_teams() {
-
-    // TODO make button say "Start Game"
-    // TODO short circuit if start of game
 
     var next_per_btn = $('#next_period_btn');
 
@@ -458,6 +892,7 @@ function listen_for_order() {
     });
 }
 
+// XXX is this needed?  not used anywhere
 function check_response(data, callback) {
     if ('success' in data) {
         if (data['success']) {
@@ -528,6 +963,41 @@ function btnEvent(fn, name, id) {
     fn.call(); 
 }
 
+function Buttons() {
+    this.last_clicked = undefined;
+
+    this.next_buttons = {
+                        'start':'step1_btn',
+                        'step1':'step2_btn',
+                        'step2':'ship_btn',
+                        'ship':'step3_btn',
+                        'step3':'order_btn'
+                       }
+
+    this.enabled_next = function(name) {
+        $('#'+this.next_buttons[name]).attr('disabled',false);
+    };
+
+    this.set_last_clicked = function(name) {
+        $.ajax({
+            data: {
+                    set: 'last_clicked',
+                    value: name
+            },
+            success:function(data, textStatus) {
+                if ('error' in data) {
+                    log_error(data['error']);
+                }
+            }
+        });
+    };
+
+    this.disable_current = function(id) {
+        // disable current button
+        $('#'+id).attr('disabled',true);
+    };
+}
+
 function reload_period_table() {
     $.ajax({
             dataType: 'html',
@@ -542,6 +1012,10 @@ function reload_period_table() {
 }
 
 $(document).ready(function() {
+
+    // initialize Game, Button object
+    var game = Game();
+    var button = Button();
 
     // setup jquery ui datepicker for control panel
     $('#datetime').datepicker({
@@ -578,6 +1052,11 @@ $(document).ready(function() {
     if ($('#next_period_btn').get().length == 1) {
         set_buttons();
         set_timers();
+    }
+
+    function next_button_click() {
+        $(button).trigger('button');
+        $(game).trigger('next_period_button');
     }
 
     // start button
@@ -704,9 +1183,10 @@ $(document).ready(function() {
                 $('#shipment_errors').text('Please enter a value!');
                 $('#ship_btn').attr('disabled', false);
             }
-            // validates 
+            // is a valid number 
             else {
 
+                // amount is in inventory
                 if (amt_to_ship > get_inventory()) {
                     $('#shipment_errors').text('Cannot ship more than inventory!');
 

@@ -1,0 +1,18 @@
+
+################################
+TESTING
+################################
+
+This document covers some of the ways to test the beergame
+in order to catch edge cases that might arise during code 
+changes.
+
+1. Creating a new game
+    - making games with the same name
+    - game gets created in the database
+    - the teams assigned to that game get created
+    - can join the game
+
+2. Edge cases
+    - backorders
+    - 

@@ -90,6 +90,20 @@ def _set_period_value(game, role, period, field, val):
     setattr(period, field, val)
     period.save()
 
+def _set_last_clicked(game, role, value):
+    team = get_object_or_404(Team, game=game, role=role)
+    def in_tuple(val, tuple):
+        for tup in tuple:
+            if val in tup:
+                return True
+        return False
+
+    if in_tuple(value, Team.BUTTONS):
+        team.last_clicked_button = value
+        team.save()
+        return True
+    return False
+
 def ajax(request, game, role):
     game = get_object_or_404(Game, pk=game)
     
@@ -193,18 +207,8 @@ def ajax(request, game, role):
                     mimetype='text/javascript')
 
     elif data.has_key('set') and data.has_key('value'):
-        team = get_object_or_404(Team, game=game, role=role)
         if data['set'] == 'last_clicked':
-
-            def in_tuple(val, tuple):
-                for tup in tuple:
-                    if val in tup:
-                        return True
-                return False
-
-            if in_tuple(data['value'], Team.BUTTONS):
-                team.last_clicked_button = data['value']
-                team.save()
+            if _set_last_clicked(game, role, data['value']):
                 return HttpResponse(json.dumps({'success':'set last clicked button'}),
                         mimetype='text/javascript')
             else:
@@ -371,6 +375,8 @@ def ajax(request, game, role):
 
         team.last_completed_period = int(data['period'])
         team.save()
+
+        _set_last_clicked(game, role, 'none')
 
         return HttpResponse(json.dumps({'success':'ordered %d' % order}),
                     mimetype='text/javascript')

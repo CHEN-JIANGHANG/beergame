@@ -1,4 +1,5 @@
 $(document).ready(function() {
+    /*
     test('shipment recommendation', function() {
         equals(get_shipment_recommendation(20, 30, 15), 30, 'check inventory with backlog'); 
         equals(get_shipment_recommendation(0, 18, 19), 18, 'check when order is greater than inventory'); 
@@ -10,13 +11,11 @@ $(document).ready(function() {
         set_shipment(""); // reset
 
         // need to figure out how to test giving latency of ajax
-        /* 
-        set_order(5); // just for testing
-        set_shipment_recommendation();
-        equals(get_shipment(), "5", 'check that shipment recommendation gets set');
-        set_order(""); // reset order
-        set_shipment("", false); // reset shipment
-        */
+        //set_order(5); // just for testing
+        //set_shipment_recommendation();
+        //equals(get_shipment(), "5", 'check that shipment recommendation gets set');
+        //set_order(""); // reset order
+        //set_shipment("", false); // reset shipment
     });
 
     test('period management', function() {
@@ -39,19 +38,28 @@ $(document).ready(function() {
         equals(get_order(), 20, 'check numerical order');
         set_order(""); // put back to blank
     });
+    */
 
+    var game = new Game();
     test('game object', function() {
-        var game = new Game();
-        equals(game.getPeriod(), 0, 'check getPeriod');
-        game.incrementPeriod();
-        equals(game.getPeriod(), 1, 'check increment period');
-        game._resetPeriod();
-        equals(game.getPeriod(), 0, 'check reset period');
-        equals(game.getInventory(), 12, 'check getInventory');
-        game.setInventory(20);
-        equals(game.getInventory(), 20, 'check setInventory');
-        game._resetInventory();
-        equals(game.getInventory(), 12, 'check resetInventory');
+        // tests setters and getters
+        equals(game.get_period(), 0, 'check get_period');
+        game.increment_period();
+        equals(game.get_period(), 1, 'check increment_period');
+        // check that period get changed in HTML
+        equals($('#period_num').text(), "1", 'check changes to HTML');
+        game._reset_period();
+        equals(game.get_period(), 0, 'check reset_period');
+        equals(game.get_inventory(), 12, 'check get_inventory');
+        game.set_inventory(20);
+        equals(game.get_inventory(), 20, 'check set_inventory');
+        game._reset_inventory();
+        equals(game.get_inventory(), 12, 'check reset_inventory');
+    });
+
+    test('steps actions', function() {
+        game.set_order('10');
+        equals(game.get_order(), 10, 'check set_order');
     });
 });
 

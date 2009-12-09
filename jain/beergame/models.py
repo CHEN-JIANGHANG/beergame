@@ -31,8 +31,13 @@ class Team(models.Model):
     last_clicked_button = models.CharField(max_length=12, choices=BUTTONS) 
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
+
         ret = super(self.__class__, self).save(*args, **kwargs)
-        Period(team=self).save()
+
+        # only create period on initial game creation
+        if is_new: 
+            Period(team=self).save()
 
         return ret
 

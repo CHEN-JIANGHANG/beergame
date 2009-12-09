@@ -30,7 +30,7 @@
 
 
 <div id="next_period">
-    <input type="button" id="next_period_btn" value="{% ifequal period.number 0 %}Start game{% endifequal %}{% ifnotequal period.number 0 %}Start next period{% endifnotequal %}" />
+    <input type="button" id="next_period_btn" class="button" value="{% ifequal period.number 0 %}Start game{% endifequal %}{% ifnotequal period.number 0 %}Start next period{% endifnotequal %}" />
 </div>
 
 <div class="step_wrapper">
@@ -40,7 +40,7 @@
         Click Step 1 to advance Shipment 1 to On-hand Inventory and to advance
         Shipment 2 to Shipment 1.
         </div>
-        <input type="button" id="step1_btn" value="Step 1" />
+        <input type="button" id="step1_btn" class="button" value="Step 1" />
         <br />
         <div class="lead_tile" id="inventory">
             <h4>On-Hand Inventory</h4>
@@ -65,7 +65,7 @@
         Click Step 2 to advance Incoming Order 1 to Current Order and to advance
         Incoming Order 2 to Incoming Order 1.
         </div>
-        <input type="button" id="step2_btn" value="Step 2" />
+        <input type="button" id="step2_btn" class="button" value="Step 2" />
         <br />
         <div class="lead_tile" id="order">
             <h4>Current Order</h4>
@@ -95,7 +95,7 @@
         <div id="shipping">
             <label for="amt_to_ship">Enter quantity to deliver</label>
             <input type="text" id="amt_to_ship" />
-            <input type="button" id="ship_btn" value="Ship" />
+            <input type="button" id="ship_btn" class="button" value="Ship" />
             <div id="shipment_errors" class="error"></div>
             <div class="instructions">
             Recommended Shipment size is minimum of (Backlog+Current Order) and On-hand
@@ -112,7 +112,7 @@
         <div class="instructions">
         Click Step 3 to record end-of-period data in the table.
         </div>
-        <input type="button" id="step3_btn" value="Step 3" />
+        <input type="button" id="step3_btn" class="button" value="Step 3" />
         <br />
         <div id="period_table">
             {% include "period_table.html" %}
@@ -121,7 +121,7 @@
         <div id="ordering">
             <label for="amt_to_order">Enter your order:</label>
             <input type="text" id="amt_to_order" />
-            <input type="button" id="order_btn" value="Order" />
+            <input type="button" id="order_btn" class="button" value="Order" />
             <div id="order_errors" class="error"></div>
             <div class="instructions">
             Enter an order size and click ORDER to place order on Supplier.

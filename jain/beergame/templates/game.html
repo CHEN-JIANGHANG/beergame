@@ -50,10 +50,7 @@
             <h4>Shipment #1</h4>
             <p id="ship1_amt">{{ period.shipment_1 }}</p>
         </div>
-        <div class="lead_tile" id="shipment2">
-            <h4>Shipment #2</h4>
-            <p id="ship2_amt">{% ifequal period.shipment_2 None %}Waiting for Shipment from Supplier{% endifequal %}{% ifnotequal period.shipment_2 None %}{{ period.shipment_2 }}{% endifnotequal %}</p>
-        </div>
+        {% include "shipment_2.html" %}
         <br class="clear" />
     </div>
 </div>
@@ -126,6 +123,10 @@
             <div class="instructions">
             Enter an order size and click ORDER to place order on Supplier.
             </div>
+        </div>
+
+        <div id="back_to_top">
+            <input type="button" id="top_btn" value="Back to Top" />
         </div>
         <br class="clear" />
     </div>

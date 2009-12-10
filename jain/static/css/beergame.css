@@ -143,6 +143,11 @@ div#period_table table td {
     text-align: center;
 }
 
+div#back_to_top {
+    margin: 20px 0 0 0;
+    text-align: center;
+}
+
 div.error {
     color: #ff0000;
 }

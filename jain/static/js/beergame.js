@@ -47,7 +47,7 @@ function update_status(message) {
 }
 
 function log_debug(msg) {
-    if (DEBUG) {
+    if (window.console && DEBUG) {
         console.log(msg);
     }
 }
@@ -346,51 +346,6 @@ function Game() {
         });
     };
 
-    this.wait_for_teams = function() {
-        var self = this;
-        var next_per_btn = $('#next_period_btn');
-
-        if (self.get_period() == 0) {
-            next_per_btn.val('Start game');
-            next_per_btn.attr('disabled',false);
-        }
-        else {
-            // wait for other teams to finish
-            next_per_btn.val('Waiting for Other firms to Order');
-            function check_for_teams() {
-                 $.ajax({
-                        data: {
-                                check: 'teams_ready',
-                                period: self.get_period()
-                        },
-                        success: function(data, textStatus) {
-                            if ('teams_ready' in data) {
-                                if (data['teams_ready']) {
-                                    var per_btn = $('#next_period_btn');
-                                    per_btn.attr('disabled', false);
-                                    per_btn.val('Start next period');
-                                    $('#order_btn').stopTime();
-                                }
-                                else if ('waiting_for' in data) {
-                                    for (var team in data['waiting_for']) {
-                                        display_message('Waiting for '+data['waiting_for'][team]);
-                                    }
-                                }
-                            }
-                            else if ('error' in data) {
-                                log_error(data['error']);
-                            }
-                        }
-                });
-
-            }
-            check_for_teams();
-            $('#order_btn').everyTime(CHECK_INTERVAL, function() {
-                check_for_teams();
-            });
-        }
-    };
-
     this.set_buttons = function() {
         var self = this;
         if ($('#next_period_btn').get().length == 1) {
@@ -444,85 +399,124 @@ function Game() {
             });
         }
     };
+    
+    /*
+     * @data - data returned from ajax request
+     * returns true if no errors
+     */
+    this.error_check = function(data) {
+        if (data.error !== undefined) {
+            log_error(data.error);
+            return false;
+        }
+        return true;
+    };
 
-    this.listen_for_shipment = function() {
+    /*
+     * @timer_elm - object for timer
+     * @type - query type: "get" or "check"
+     * @item - what to be getting examples 
+     *         shipment_2 and order_2
+     * @callback(data) - function to call after success
+     *
+     */
+    this.check_until = function(timer_elm, type, item, callback) {
         var self = this;
-        function check_shipment() {
+        // XXX make timer_elm self?
+        function check(has_timer) {
+            data = { period: self.get_period() }
+            data[type] = item;
             $.ajax({
-                    data: {
-                        get: 'shipment_2',
-                        period: self.get_period()
-                    },
-                    success: function(data, textStatus) {
-                        if ('shipment_2' in data && data['shipment_2'] != null) {
-                            $('#step1').stopTime();
-                            $('#shipment2').remove();
-                            $('#shipment1').after('<div id="shipment2" class="lead_tile">' + 
-                                '<h4>Shipment #2</h4><p id="ship2_amt">'+data['shipment_2']+'</p></div>');
-
-                            $('#shipment2').corner();
-                           
-                            // if shipment arrives after step3, table will
-                            // be updated
-                            $.ajax({
-                                    data: {
-                                        query: 'last_clicked',
-                                        period: self.get_period()
-                                    },
-                                    success: function(data, textStatus) {
-                                        if ('last_clicked' in data) {
-                                            var last_clicked = data['last_clicked'];
-                                            if (last_clicked in ['step3','order','none']) {
-                                                self.reload_period_table();
-                                            }
-                                        }
-                                        else if ('error' in data) {
-                                            log_error(data['error']);
-                                        }
-                                    }
-                            });
+                data: data,
+                success: function(data, stat) {
+                    self.error_check(data);
+                    if (type == 'get') {
+                        if (data[item] !== null) {
+                            if (has_timer) { $(timer_elm).stopTime(); }
+                            callback(data);
                         }
-                        else if ('error' in data) {
-                            log_error(data['error']);
-                        }
-                    }        
+                    } else if (type == 'check') {
+                        // TODO implement check
+                    }
+                }
             });
         }
-        check_shipment();
-        // starts listening for next shipment
-        $('#step1').everyTime(CHECK_INTERVAL, function() {
-            check_shipment();
+        // for more game responsiveness
+        check(false);
+        $(timer_elm).everyTime(CHECK_INTERVAL, function() {
+            check(true);
+        });
+    };
+
+
+    // TODO can i make this a better function name? 
+    this.listen_for_shipment = function() {
+        this.check_until('#step1', 'get', 'shipment_2', function(data) {
+            $('#shipment2').remove();
+            $('#shipment1').after(data.html);
+            $('#shipment2').corner();
+
+            // TODO check if need to reload the period table
+            // when shipment2 arrives to keep data current
+            // It was AJAX requesting last_click and if it was
+            // 'step3' or 'order' or 'none' then we reloaded the table
+            // CONSIDER: adding that information to the request
         });
     };
 
     this.listen_for_order = function() {
+        this.check_until('#step2', 'get', 'order_2', function(data) {
+            if (data['display_orders']) {
+                $('#order2_amt').text(data['order_2']);
+            }
+            $('#order2_amt').text('');
+        });
+    };
+
+    this.wait_for_teams = function() {
         var self = this;
-        function check_order() {
-            $.ajax({
-                    data: {
-                        period: self.get_period(),
-                        get: 'order_2'
-                    },
-                    success: function(data, textStatus) {
-                        if ('order_2' in data && data['order_2'] != null) {
-                            $('#step2').stopTime();
-                            if ('display_orders' in data) {
-                                if (data['display_orders']) {
-                                    $('#order2_amt').text(data['order_2']);
+        var next_per_btn = $('#next_period_btn');
+
+        if (self.get_period() == 0) {
+            next_per_btn.val('Start game');
+            next_per_btn.attr('disabled',false);
+        }
+        else {
+            // wait for other teams to finish
+            next_per_btn.val('Waiting for Other firms to Order');
+            function check_for_teams() {
+                 $.ajax({
+                        data: {
+                                check: 'teams_ready',
+                                period: self.get_period()
+                        },
+                        success: function(data, textStatus) {
+                            if ('teams_ready' in data) {
+                                if (data['teams_ready']) {
+                                    self.display_top_btn();
+                                    var per_btn = $('#next_period_btn');
+                                    per_btn.attr('disabled', false);
+                                    per_btn.val('Start next period');
+                                    $('#order_btn').stopTime();
+                                }
+                                else if ('waiting_for' in data) {
+                                    for (var team in data['waiting_for']) {
+                                        display_message('Waiting for '+data['waiting_for'][team]);
+                                    }
                                 }
                             }
-                            $('#order2_amt').text('');
+                            else if ('error' in data) {
+                                log_error(data['error']);
+                            }
                         }
-                        else if ('error' in data) {
-                            log_error(data['error']);
-                        }
-                    }
+                });
+
+            }
+            check_for_teams();
+            $('#order_btn').everyTime(CHECK_INTERVAL, function() {
+                check_for_teams();
             });
         }
-        check_order();
-        $('#step2').everyTime(CHECK_INTERVAL,function() {
-            check_order();
-        });
     };
 
     this.set_timers = function() {
@@ -577,10 +571,9 @@ function Game() {
                     }
                 }, 'json');
 
-        // increment the period
-        cur_period = this.get_period(); 
-
         this.increment_period();
+
+        this.hide_top_btn();
 
         // remove shipped amount
         $('#amt_to_ship').val('');
@@ -601,7 +594,7 @@ function Game() {
                     if ('error' in data) {
                         log_error(data['error']);
                     }
-                    console.log('completed step1'); 
+                    log_debug('completed step1'); 
                 }
             });
             var ship_div = $('#shipment1');
@@ -746,6 +739,18 @@ function Game() {
         self.listen_for_can_order();
     };
 
+    this.display_top_btn = function() {
+        var top_btn = $('#top_btn');
+        top_btn.attr('disabled',false);
+        top_btn.fadeIn('slow');
+    };
+
+    this.hide_top_btn = function() {
+        var top_btn = $('#top_btn');
+        top_btn.attr('disabled',true);
+        top_btn.fadeOut('slow');
+    };
+
     this.order_btn_click = function() {
         var self = this;
         // clear order errors
@@ -779,10 +784,44 @@ function Game() {
             }
     };
 
+    var self = this;
+    $(this)
+        .bind('next_period_btn', function() {
+            log_debug('caught next_period_btn event');
+            self.next_period_btn_click();
+        })
+        .bind('step1_btn', function() {
+            log_debug('caught step1 btn event');
+            self.step1_btn_click();
+        })
+        .bind('step2_btn', function() {
+            log_debug('caught step2 btn event');
+            self.step2_btn_click(); 
+        })
+        .bind('ship_btn', function() {
+            self.ship_btn_click();
+        })
+        .bind('step3_btn', function() {
+            self.step3_btn_click();
+        })
+        .bind('order_btn', function() {
+            self.order_btn_click();
+    });
+
     // constructors
     this.get_period();
     this._reset_inventory();
     this._reset_backlog();
+
+    this.hide_top_btn(); 
+
+    $('#top_btn').click(function() {
+        self.hide_top_btn();
+        window.scroll(0,0);
+    });
+
+    this.set_buttons();
+    this.set_timers();
 }
 
 /*
@@ -801,7 +840,7 @@ function Buttons() {
                        }
 
     this.enable_next = function(name) {
-        console.log('next button: '+name);
+        log_debug('next button: '+name);
         $('#'+this.next_buttons[name]).attr('disabled',false);
     };
 
@@ -831,6 +870,13 @@ function Buttons() {
         this.disable_current(id);
         this.enable_next(name);
     };
+
+    var self = this;
+    // handle all button click events
+    $(this).bind('button', function(evnt, name, id) {
+        log_debug('button clicked with attributes: ' + name + ' ' + id);
+        self.button_click(name, id);
+    });
 }
 
 $(document).ready(function() {
@@ -842,37 +888,6 @@ $(document).ready(function() {
         // initialize Game, Button object
         var game = new Game();
         var buttons = new Buttons();
-
-        game.set_buttons();
-        game.set_timers();
-
-        // handle all button click events
-        $(buttons).bind('button', function(evnt, name, id) {
-            console.log('button clicked with attributes: ' + name + ' ' + id);
-            buttons.button_click(name, id);
-        });
-
-        $(game).bind('next_period_btn', function() {
-            console.log('caught next_period_btn event');
-            game.next_period_btn_click();
-        });
-        $(game).bind('step1_btn', function() {
-            console.log('caught step1 btn event');
-            game.step1_btn_click();
-        });
-        $(game).bind('step2_btn', function() {
-            console.log('caught step2 btn event');
-            game.step2_btn_click(); 
-        });
-        $(game).bind('ship_btn', function() {
-            game.ship_btn_click();
-        });
-        $(game).bind('step3_btn', function() {
-            game.step3_btn_click()
-        });
-        $(game).bind('order_btn', function() {
-            game.order_btn_click();
-        });
 
         /* BUTTON CLICK HANDLERS */
         var BUTTONS = [
@@ -886,7 +901,7 @@ $(document).ready(function() {
 
         /* // TODO get this to work
         for (var idx in BUTTONS) {
-            console.log(BUTTONS[idx]);
+            log_debug(BUTTONS[idx]);
             $(BUTTONS[idx][1]).click(function() {
                 var self = idx;
                 $(buttons).trigger('button', eval(BUTTONS[self])); 
@@ -941,5 +956,4 @@ $(document).ready(function() {
 
     // configure jGrowl
     $.jGrowl.defaults.position = "bottom-right";
-
 });

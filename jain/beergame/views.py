@@ -4,6 +4,7 @@ import json
 
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import RequestContext
+from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.db.models import F
 
@@ -104,12 +105,26 @@ def _set_last_clicked(game, role, value):
         return True
     return False
 
+def _get_shipment2_html(period):
+    return render_to_string('shipment_2.html', {'period': period}) 
+
 def ajax(request, game, role):
     game = get_object_or_404(Game, pk=game)
     
     data = request.REQUEST.copy()
 
     if data.has_key('period') and data.has_key('get'):
+        # XXX this api functionality could be used for 
+        # players to cheat.  FIX: limit what things can be grabbed 
+
+        if data['get'] == 'shipment_2':
+            period = _get_period(game, role, data['period']) 
+            value = getattr(period, data['get'])
+
+            tmpl = render_to_string('shipment_2.html', {'period': period}) 
+            
+            return HttpResponse(json.dumps({'html': tmpl, data['get']: value}),
+                                mimetype='text/javascript')
         
         period = _get_period(game, role, data['period']) 
 

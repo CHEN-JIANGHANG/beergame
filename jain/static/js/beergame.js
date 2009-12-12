@@ -1,22 +1,17 @@
-/* VISUAL ELEMENTS */
-
-$('.step_wrapper').corner("10px"); // for dark gray rounded corners
-$('.step').corner("8px"); // for light gray rounded corners 
-$('.lead_tile').corner(); // for orange rounded corners
-
-/* END VISUAL ELEMENTS */
-
-/* CONSTANTS */
-CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
-FADE_SPEED = 700; // milliseconds for fade
-DEBUG = true;
-/* END CONSTANTS */
+jQuery.fn.log = function (msg) {
+    console.log("%s: %o", msg, this);
+    return this;
+};
 
 /* CONFIGURATION */
 // if AJAX_URL is already set, we'll use that
 // this is used for testing page
-if (typeof(window.AJAX_URL) == "undefined") {
+if (typeof window.AJAX_URL == "undefined") {
     AJAX_URL = 'ajax/'; 
+}
+
+function log_error(msg) {
+    $('#errors ul').prepend('<li>'+msg+'</li>');
 }
 
 // configure AJAX 
@@ -24,39 +19,25 @@ $.ajaxSetup({
     url: AJAX_URL, 
     cache: false,
     type: 'POST',
-    dataType: 'json'
+    dataType: 'json',
+    error: function(req, stat, err) {
+        log_error('ajax error: '+stat+' - '+err);
+    }
 });
 
 // configure jGrowl
 $.jGrowl.defaults.position = "bottom-right";
-
 /* END CONFIGURATION */
 
-/*
- * outputs a message using jGrowl
- */
-function display_message(msg) {
-    $.jGrowl(msg);
-}
+(function() {
 
-/*
- * updates the status message at top of screen
- */
-function update_status(message) {
-    $('#status-message').text(message);
-}
-
-function log_debug(msg) {
-    if (window.console && DEBUG) {
-        console.log(msg);
-    }
-}
-
-function log_error(msg) {
-    $('#errors ul').prepend('<li>'+msg+'</li>');
-}
-
-function Game() {
+var BeerGame = function() {
+    /* CONSTANTS */
+    CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
+    FADE_SPEED = 700; // milliseconds for fade
+    DEBUG = true;
+    /* END CONSTANTS */
+    
     // ATTRIBUTES 
     this.period = undefined;
     this.inventory = undefined;
@@ -64,6 +45,30 @@ function Game() {
     this.last_clicked = undefined;
 
     // METHODS
+
+    // DEBUGGING
+
+    this.log_debug = function(msg) {
+        if (window.console && DEBUG) {
+            console.log(msg);
+        }
+    };
+    // END DEBUGGING
+
+    // NOTIFICATIONS
+
+    // outputs a message using jGrowl
+    this.display_message = function(msg) {
+        $.jGrowl(msg);
+    };
+
+    // updates the status message at top of screen
+    // XXX not used anywhere, possibly delete
+    this.update_status = function(msg) {
+        $('#status-message').text(msg);
+    };
+    // END NOTIFICATIONS
+
     // get the current inventory 
     this.get_inventory = function() {
         if (this.inventory !== undefined) {
@@ -73,7 +78,7 @@ function Game() {
             // try to get inventory from
             // the HTML
             var inv_elm = $('#inv_amt');
-            var inv_num = parseInt(inv_elm.text());
+            var inv_num = parseInt(inv_elm.text(), 10);
 
             if (!isNaN(inv_num)) {
                 this.inventory = inv_num;
@@ -104,18 +109,15 @@ function Game() {
             async: false,
             data: {current: 'inventory'},
             success: function(data, textStatus) {
-                if ('error' in data) {
-                    log_error(data['error']);
-                }
+                self.error_check(data);
                 if ('inventory' in data) {
-                    self.inventory = parseInt(data['inventory']);
+                    self.inventory = parseInt(data.inventory, 10);
                 }
             }
         });
     };
 
     this.get_period = function() {
-        var self = this;
         if (this.period !== undefined) {
             return this.period;
         }
@@ -161,11 +163,9 @@ function Game() {
             async: false,
             data: {current: 'period'},
             success: function(data, textStatus) {
-                if ('error' in data) {
-                    log_error(data['error']);
-                }
+                self.error_check(data);
                 if ('period' in data) {
-                    self.period = parseInt(data['period']);
+                    self.period = parseInt(data.period, 10);
                 }
             }
         });
@@ -173,7 +173,7 @@ function Game() {
 
     // incoming shipments 
     this.get_shipment1 = function() {
-        return parseInt($('#ship1_amt').text()); 
+        return parseInt($('#ship1_amt').text(), 10); 
     };
 
     this.set_shipment1 = function(val) {
@@ -182,7 +182,7 @@ function Game() {
 
     // incoming orders
     this.get_order = function() {
-        var order = parseInt($('#order_amt').text()); 
+        var order = parseInt($('#order_amt').text(), 10); 
         if (isNaN(order)) {
             log_error('order was not a number');
             return false;
@@ -200,7 +200,7 @@ function Game() {
     };
 
     this.set_amt_to_ship = function(val, select) {
-        var shipment_input = $('#amt_to_ship')
+        var shipment_input = $('#amt_to_ship');
         shipment_input.val(val);
 
         if (select) {
@@ -210,7 +210,7 @@ function Game() {
     
     // outgoing order
     this.get_amt_to_order = function() {
-        return parseInt($('#amt_to_order').val());
+        return parseInt($('#amt_to_order').val(), 10);
     };
 
     this.set_amt_to_order = function(val) {
@@ -219,9 +219,9 @@ function Game() {
 
 
     this.get_shipment_recommendation = function(backlog, inventory, order) {
-        log_debug('backlog: '+backlog);
-        log_debug('inventory: '+inventory);
-        log_debug('order: '+order);
+        this.log_debug('backlog: '+backlog);
+        this.log_debug('inventory: '+inventory);
+        this.log_debug('order: '+order);
         // backlog
         if (backlog > 0) {
             // can deliver both backlog and order
@@ -272,11 +272,9 @@ function Game() {
                     period: self.get_period()
             }, 
             success: function(data, textStatus) {
-                if ('error' in data) {
-                    log_error(data['error']);
-                }
+                self.error_check(data);
                 if ('backlog' in data) {
-                    self.backlog = parseInt(data['backlog']);
+                    self.backlog = parseInt(data.backlog, 10);
                 }
 
             }
@@ -292,19 +290,14 @@ function Game() {
                         period: self.get_period()
                 },
                 success: function(data, textStatus) {
+                    self.error_check(data);
                     if ('can_ship' in data) {
-                        if (data['can_ship']) {
+                        if (data.can_ship) {
                             $('#ship_btn').attr('disabled',false); 
                             $('#ship_btn').val('Ship'); 
                             $('#step2_btn').stopTime();
-                            display_message('You can now ship');
+                            self.display_message('You can now ship');
                         }
-                    }
-                    else if ('error' in data) {
-                        log_error(data['error']);
-                    }
-                    else {
-                        log_error('listen for can ship returned invalid data');
                     }
                 }
             });
@@ -315,89 +308,17 @@ function Game() {
         });
     };
 
+    // waits until the supplier can receive an order 
     this.listen_for_can_order = function() {
         var self = this;
-        function check_can_order() {
-            $.ajax({
-                    data: {
-                            check: 'can_order',
-                            period: self.get_period()
-                    },
-                    success: function(data, textStatus) {
-                        if ('error' in data) {
-                            log_error(data['error']);
-                        }
-                        else {
-                            if ('can_order' in data) {
-                                if (data['can_order']) {
-                                    $('#order_btn').attr('disabled',false); 
-                                    $('#order_btn').val('Order'); 
-                                    $('#step3_btn').stopTime();
-                                    display_message('You can now order');
-                                }
-                            }
-                        }
-                    }
-            });
-        }
-        check_can_order();
-        $('#step3_btn').everyTime(CHECK_INTERVAL, function() {
-            check_can_order();
-        });
-    };
-
-    this.set_buttons = function() {
-        var self = this;
-        if ($('#next_period_btn').get().length == 1) {
-            $.ajax({
-                    data:   { 
-                                query: 'last_clicked'
-                            },
-                    success: function(data, textStatus) {
-                        var btns = {
-                                        start:  'next_period_btn',
-                                        step1:  'step1_btn',
-                                        step2:  'step2_btn',
-                                        ship:   'ship_btn',
-                                        step3:  'step3_btn',
-                                        order:  'order_btn'
-                                    };
-                        var last_clicked = data['last_clicked'];
-                        var start_index = 0;
-                        if (last_clicked == 'none') {
-                            for (var btn in btns) {
-                                $('#'+btns[btn]).attr('disabled',true);
-                            }
-                            self.wait_for_teams();
-                        }
-                        else if (last_clicked in btns) {
-                            var disable = true;
-                            for (var btn in btns) {
-                                $('#'+btns[btn]).attr('disabled',disable);
-                                if (!disable) { disable = true; }
-                                if (btn == last_clicked) { disable = false; }
-                            }
-                            if (!$('#ship_btn').attr('disabled')) {
-                                $('#ship_btn').attr('disabled',true); 
-                                $('#ship_btn').val('waiting...'); 
-
-                                self.set_shipment_recommendation();
-
-                                self.listen_for_can_ship();
-                            }
-                            else if (!$('#order_btn').attr('disabled')) {
-                                $('#order_btn').attr('disabled', true); 
-                                $('#order_btn').val('waiting...'); 
-                                
-                                self.listen_for_can_order();
-                            }
-                        }
-                        else {
-                            log_error('last clicked returned an invalid button: '+last_clicked);
-                        }
-                    }
-            });
-        }
+        this.check_until('#step3_btn', 'check', 'can_order',
+            function() {
+                $('#order_btn').attr('disabled',false); 
+                $('#order_btn').val('Order'); 
+                $('#step3_btn').stopTime();
+                self.display_message('You can now order');
+            }
+        );
     };
     
     /*
@@ -417,14 +338,15 @@ function Game() {
      * @type - query type: "get" or "check"
      * @item - what to be getting examples 
      *         shipment_2 and order_2
-     * @callback(data) - function to call after success
+     * @success(data) - function to call after success
+     * @waiting(data) - function to call while waiting
      *
      */
-    this.check_until = function(timer_elm, type, item, callback) {
+    this.check_until = function(timer_elm, type, item, success, waiting) {
         var self = this;
         // XXX make timer_elm self?
         function check(has_timer) {
-            data = { period: self.get_period() }
+            data = { period: self.get_period() };
             data[type] = item;
             $.ajax({
                 data: data,
@@ -433,10 +355,15 @@ function Game() {
                     if (type == 'get') {
                         if (data[item] !== null) {
                             if (has_timer) { $(timer_elm).stopTime(); }
-                            callback(data);
+                            success(data);
                         }
                     } else if (type == 'check') {
-                        // TODO implement check
+                        if (data[item]) {
+                            if (has_timer) { $(timer_elm).stopTime(); }
+                            success(data);
+                        } else {
+                            waiting(data);
+                        }
                     }
                 }
             });
@@ -466,73 +393,121 @@ function Game() {
 
     this.listen_for_order = function() {
         this.check_until('#step2', 'get', 'order_2', function(data) {
-            if (data['display_orders']) {
-                $('#order2_amt').text(data['order_2']);
+            if (data.display_orders) {
+                $('#order2_amt').text(data.order_2);
             }
             $('#order2_amt').text('');
         });
     };
 
+    /*
+     * Waits for other teams to finish current period
+     * before allowing players to advance to next period
+     * Alerts which teams it is waiting for
+     */
     this.wait_for_teams = function() {
+        this.log_debug('calling wait for teams');
         var self = this;
-        var next_per_btn = $('#next_period_btn');
-
-        if (self.get_period() == 0) {
-            next_per_btn.val('Start game');
-            next_per_btn.attr('disabled',false);
-        }
-        else {
-            // wait for other teams to finish
-            next_per_btn.val('Waiting for Other firms to Order');
-            function check_for_teams() {
-                 $.ajax({
-                        data: {
-                                check: 'teams_ready',
-                                period: self.get_period()
-                        },
-                        success: function(data, textStatus) {
-                            if ('teams_ready' in data) {
-                                if (data['teams_ready']) {
-                                    self.display_top_btn();
-                                    var per_btn = $('#next_period_btn');
-                                    per_btn.attr('disabled', false);
-                                    per_btn.val('Start next period');
-                                    $('#order_btn').stopTime();
-                                }
-                                else if ('waiting_for' in data) {
-                                    for (var team in data['waiting_for']) {
-                                        display_message('Waiting for '+data['waiting_for'][team]);
-                                    }
-                                }
-                            }
-                            else if ('error' in data) {
-                                log_error(data['error']);
-                            }
+        this.check_until('#order_btn', 'check', 'teams_ready', 
+            function(data) {
+                self.display_top_btn();
+                var per_btn = $('#next_period_btn');
+                per_btn.attr('disabled', false);
+                per_btn.val('Start next period');
+            },
+            function(data) {
+                if ('waiting_for' in data && self.get_period() !== 0) {
+                    // XXX doing it like this seems inefficient
+                    // has to search DOM for class objects, slower
+                    // implement patch to jGrowl for ID to notification
+                    // add new notifications
+                    for (var idx in data.waiting_for) {
+                        var role = data.waiting_for[idx];
+                        if ($(['.',role].join('')).length === 0) {
+                            $.jGrowl(['Waiting for ',role].join(' '), 
+                                {   
+                                    sticky: true, 
+                                    theme: role
+                                });
                         }
-                });
-
+                    }
+                    // remove old notifications
+                    for (var jdx in data.ready) {
+                        var elm = $(['.',data.ready[jdx]].join(''));
+                        if (elm.length !== 0) {
+                            // should only be one item
+                            elm.remove();
+                        }
+                    }
+                }
             }
-            check_for_teams();
-            $('#order_btn').everyTime(CHECK_INTERVAL, function() {
-                check_for_teams();
-            });
-        }
+        );
     };
 
-    this.set_timers = function() {
+    // sets the state of the game with
+    // buttons and timers
+    this.set_game_state = function() {
         var self = this;
         $.ajax({
-                data: {
-                       query: 'last_clicked',
-                       period: self.get_period()
-                },
+                data:   { 
+                            query: 'last_clicked',
+                            period: this.get_period()
+                        },
                 success: function(data, textStatus) {
+                    // sets button states
+                    var btns = {
+                                    start:  'next_period_btn',
+                                    step1:  'step1_btn',
+                                    step2:  'step2_btn',
+                                    ship:   'ship_btn',
+                                    step3:  'step3_btn',
+                                    order:  'order_btn'
+                                };
+                    var last_clicked = data.last_clicked;
+                    if (last_clicked == 'none' || last_clicked == 'order') {
+                        for (var btn in btns) {
+                            $('#'+btns[btn]).attr('disabled',true);
+                        }
+                        if (self.get_period() === 0) {
+                            // this need to do more
+                            $(['#',btns.start].join('')).attr('disabled',false);
+                        } else {
+                            self.wait_for_teams();
+                        }
+                    }
+                    else if (last_clicked in btns) {
+                        var disable = true;
+                        for (var ctn in btns) {
+                            $('#'+btns[ctn]).attr('disabled',disable);
+                            if (!disable) { disable = true; }
+                            if (ctn == last_clicked) { disable = false; }
+                        }
+                        if (!$('#ship_btn').attr('disabled')) {
+                            $('#ship_btn').attr('disabled',true); 
+                            $('#ship_btn').val('waiting...'); 
+
+                            self.set_shipment_recommendation();
+
+                            self.listen_for_can_ship();
+                        }
+                        else if (!$('#order_btn').attr('disabled')) {
+                            $('#order_btn').attr('disabled', true); 
+                            $('#order_btn').val('waiting...'); 
+                            
+                            self.listen_for_can_order();
+                        }
+                    }
+                    else {
+                        log_error('last clicked returned an invalid button: '+last_clicked);
+                    }
+        
+                    // sets the listens for shipments and orders
                     if ('last_clicked' in data) {
-                        var last_clicked = data['last_clicked'];
+                        var last_clicked = data.last_clicked;
 
                         if (last_clicked == 'step1' || last_clicked == 'step2' || 
-                            last_clicked == 'ship' || last_clicked == 'step3' 
-                            || last_clicked == 'order') {
+                            last_clicked == 'ship' || last_clicked == 'step3' || 
+                            last_clicked == 'order') {
 
                             self.listen_for_shipment();    
 
@@ -541,12 +516,13 @@ function Game() {
                             }
                         }
                     }
+
                 }
-        });
+            });
+
     };
 
     this.reload_period_table = function() {
-        var self = this;
         $.ajax({
                 dataType: 'html',
                 data: {
@@ -561,18 +537,22 @@ function Game() {
 
     this.next_period_btn_click = function() {
         var self = this;
-        $.post('ajax/',
-                {
+        $.ajax({
+                data: {
                     step: 'start',
                     period: self.get_period()
-                }, function(data, textStatus) {
-                    if ('error' in data) {
-                        log_error(data['error']);
-                    }
-                }, 'json');
+                }, success: function(data, stat) {
+                    self.error_check(data);
+                }
+        });
 
+        // must increment after sending period
+        // to server
         this.increment_period();
-
+        
+        // hides the back to top button
+        // that appears at the bottom after order
+        // button is clicked
         this.hide_top_btn();
 
         // remove shipped amount
@@ -591,32 +571,26 @@ function Game() {
                     period: self.get_period()
                 },
                 success: function(data, textStatus) {
-                    if ('error' in data) {
-                        log_error(data['error']);
-                    }
-                    log_debug('completed step1'); 
+                    self.error_check(data);
+
+                    // remove shipment1 div
+                    var ship1_div = $('#shipment1');
+                    ship1_div.fadeOut(FADE_SPEED, function() { 
+                        // increment the inventory
+                        self.set_inventory(self.get_inventory()+self.get_shipment1());
+                        ship1_div.remove(); 
+
+                        // change ship2 to ship1
+                        var ship2_div = $('#shipment2');
+                        ship2_div.attr('id','shipment1');
+                        $('#ship2_amt').attr('id','ship1_amt');
+                        $('#shipment1 > h4').text('Shipment1'); 
+                        $('#shipment1').after(data.html);
+                        $('#shipment2').corner();
+                      
+                        self.listen_for_shipment();
+                    });
                 }
-            });
-            var ship_div = $('#shipment1');
-
-            // remove shipment 1 div
-            ship_div.fadeOut(FADE_SPEED, function() { 
-                // increment the inventory
-                self.set_inventory(self.get_inventory()+self.get_shipment1());
-
-                ship_div.remove(); 
-
-                // change ship2 to ship1
-                var ship2_div = $('#shipment2');
-                ship2_div.attr('id','shipment1');
-                $('#ship2_amt').attr('id','ship1_amt');
-                $('#shipment1 > h4').text('Shipment1'); 
-                $('#shipment1').after('<div id="shipment2" class="lead_tile">' + 
-                    '<h4>Shipment2</h4><p id="ship2_amt">Waiting for Shipment from Supplier</p></div>');
-
-                $('#shipment2').corner();
-              
-                self.listen_for_shipment();
             });
     };
     
@@ -628,12 +602,10 @@ function Game() {
                         step: 'step2'
                 },
                 success: function(data, textStatus) {
-                    if ('error' in data) {
-                        log_error(data['error']);
-                    }
-                    else if ('step2' in data) {
-                        if (data['step2'] != null) {
-                            self.set_order(data['step2']); 
+                    self.error_check(data);
+                    if ('step2' in data) {
+                        if (data.step2 !== null) {
+                            self.set_order(data.step2); 
                         }
                         else {
                             log_error('current order returned null value');
@@ -673,7 +645,7 @@ function Game() {
         });
 
         // handle amount to ship
-        var amt_to_ship = parseInt($('#amt_to_ship').val());
+        var amt_to_ship = parseInt($('#amt_to_ship').val(), 10);
 
         // check validate
         if (isNaN(amt_to_ship)) {
@@ -686,35 +658,18 @@ function Game() {
             // amount is in inventory
             if (amt_to_ship > this.get_inventory()) {
                 $('#shipment_errors').text('Cannot ship more than inventory!');
-
-                $.ajax({
-                        data: {
-                            set: 'last_clicked',
-                            value: 'step2'
-                        },
-                        success: function(data, textStatus) {
-                            if ('error' in data) {
-                                log_error(data['error']);
-                            }
-                            else if (!'success' in data) {
-                                log_error('set last clicked server communication failed');
-                            }
-                        }
-                });
                 $('#ship_btn').attr('disabled', false);
             }
             else {
                 // take out inventory
-                this.set_inventory(this.get_inventory() - parseInt(amt_to_ship));
+                this.set_inventory(this.get_inventory() - parseInt(amt_to_ship, 10));
                 $.ajax({
                         data: {
                                 shipment: amt_to_ship,
                                 period: self.get_period()
                         },
                         success: function(data, textStatus) {
-                            if ('error' in data) {
-                                log_error(data['error']);
-                            }
+                            self.error_check(data);
                         }
                 });
             }
@@ -770,9 +725,8 @@ function Game() {
                             period: self.get_period()
                     },
                     success: function(data, textStatus) {
-                        if ('error' in data) {
-                            log_error(data['error']);
-                        }
+                        self.error_check(data);
+
                         // after ordering refresh period table
                         self.reload_period_table();
                                                     
@@ -784,34 +738,33 @@ function Game() {
             }
     };
 
-    var self = this;
     $(this)
         .bind('next_period_btn', function() {
-            log_debug('caught next_period_btn event');
-            self.next_period_btn_click();
+            this.log_debug('caught next_period_btn event');
+            this.next_period_btn_click();
         })
         .bind('step1_btn', function() {
-            log_debug('caught step1 btn event');
-            self.step1_btn_click();
+            this.log_debug('caught step1 btn event');
+            this.step1_btn_click();
         })
         .bind('step2_btn', function() {
-            log_debug('caught step2 btn event');
-            self.step2_btn_click(); 
+            this.log_debug('caught step2 btn event');
+            this.step2_btn_click(); 
         })
         .bind('ship_btn', function() {
-            self.ship_btn_click();
+            this.ship_btn_click();
         })
         .bind('step3_btn', function() {
-            self.step3_btn_click();
+            this.step3_btn_click();
         })
         .bind('order_btn', function() {
-            self.order_btn_click();
+            this.order_btn_click();
     });
 
     // constructors
     this.get_period();
-    this._reset_inventory();
-    this._reset_backlog();
+    this.get_inventory();
+    this.get_backlog();
 
     this.hide_top_btn(); 
 
@@ -820,48 +773,52 @@ function Game() {
         window.scroll(0,0);
     });
 
-    this.set_buttons();
-    this.set_timers();
-}
+    this.set_game_state();
 
-/*
- * Buttons object abstracts all the button
- * functionality for main game buttons
- */
-function Buttons() {
+    // BUTTONS
+
     this.last_clicked = undefined;
 
-    this.next_buttons = {
+    this.BUTTONS = {
+                    'start': '#next_period_btn',
+                    'step1': '#step1_btn',
+                    'step2': '#step2_btn',
+                    'ship': '#ship_btn',
+                    'step3': '#step3_btn',
+                    'order': '#order_btn'
+                  };
+
+    this.NEXT_BUTTONS = {
                         'start':'step1_btn',
                         'step1':'step2_btn',
                         'step2':'ship_btn',
                         'ship':'step3_btn',
                         'step3':'order_btn'
-                       }
+                       };
+
+    this.set_click_handlers = function() {
+        var self = this;
+        for (var btn in this.BUTTONS) {
+            $(this.BUTTONS[btn]).data('name',btn).data('event','button');
+            $(this.BUTTONS[btn]).click(function() {
+                $(self).trigger($(this).data('event'), 
+                                    [$(this).data('name'), $(this).attr('id')]);
+                self.log_debug('calling game events');
+                $(self).trigger($(this).attr('id'));
+            });
+        }
+    };
 
     this.enable_next = function(name) {
-        log_debug('next button: '+name);
-        $('#'+this.next_buttons[name]).attr('disabled',false);
+        $('#'+this.NEXT_BUTTONS[name]).attr('disabled',false);
     };
 
     this.set_last_clicked = function(name) {
         this.last_clicked = name;
-        $.ajax({
-            data: {
-                    set: 'last_clicked',
-                    value: name
-            },
-            success: function(data, textStatus) {
-                if ('error' in data) {
-                    log_error(data['error']);
-                }
-            }
-        });
     };
 
     this.disable_current = function(id) {
-        // disable current button
-        $(id).attr('disabled',true);
+        $(['#',id].join('')).attr('disabled',true);
     };
 
     // meta function, pulls the rest into one
@@ -874,85 +831,35 @@ function Buttons() {
     var self = this;
     // handle all button click events
     $(this).bind('button', function(evnt, name, id) {
-        log_debug('button clicked with attributes: ' + name + ' ' + id);
         self.button_click(name, id);
     });
-}
+
+    // constructors
+    this.set_click_handlers();
+
+};
+
+    // add to global namespace
+    window.BeerGame = BeerGame;
+
+})();
 
 $(document).ready(function() {
+    /* VISUAL ELEMENTS */
+    $('.step_wrapper').corner("10px"); // for dark gray rounded corners
+    $('.step').corner("8px"); // for light gray rounded corners 
+    $('.lead_tile').corner(); // for orange rounded corners
+    /* END VISUAL ELEMENTS */
+
     // check if on game page, if so setup the game
     if ($('#next_period_btn').get().length == 1) {
         // disable all buttons
         $('.button').attr('disabled',true);
 
-        // initialize Game, Button object
-        var game = new Game();
-        var buttons = new Buttons();
+        // activate game by creating beergame object
+        var beerGame = new BeerGame(); 
 
-        /* BUTTON CLICK HANDLERS */
-        var BUTTONS = [
-                        ['start', '#next_period_btn'],
-                        ['step1', '#step1_btn'],
-                        ['step2', '#step2_btn'],
-                        ['ship', '#ship_btn'],
-                        ['step3', '#step3_btn'],
-                        ['order', '#order_btn']
-                    ];
-
-        /* // TODO get this to work
-        for (var idx in BUTTONS) {
-            log_debug(BUTTONS[idx]);
-            $(BUTTONS[idx][1]).click(function() {
-                var self = idx;
-                $(buttons).trigger('button', eval(BUTTONS[self])); 
-                $(game).trigger(BUTTONS[self][1].replace('#',''));
-            });
-        }
-        */
-
-        // start
-        $(BUTTONS[0][1]).click(function() {
-            $(buttons).trigger('button', BUTTONS[0]);
-            $(game).trigger(BUTTONS[0][1].replace('#',''));
-        });
-        // step1
-        $(BUTTONS[1][1]).click(function() {
-            $(buttons).trigger('button', BUTTONS[1]);
-            $(game).trigger(BUTTONS[1][1].replace('#',''));
-        });
-        // step2
-        $(BUTTONS[2][1]).click(function() {
-            $(buttons).trigger('button', BUTTONS[2]);
-            $(game).trigger(BUTTONS[2][1].replace('#',''));
-        });
-        // ship
-        $(BUTTONS[3][1]).click(function() {
-            $(buttons).trigger('button', BUTTONS[3]);
-            $(game).trigger(BUTTONS[3][1].replace('#',''));
-        });
-        // step3
-        $(BUTTONS[4][1]).click(function() {
-            $(buttons).trigger('button', BUTTONS[4]);
-            $(game).trigger(BUTTONS[4][1].replace('#',''));
-        });
-        // order
-        $(BUTTONS[5][1]).click(function() {
-            $(buttons).trigger('button', BUTTONS[5]);
-            $(game).trigger(BUTTONS[5][1].replace('#',''));
-        });
-        /* END BUTTON CLICK HANDLERS */
     }
-
-    // setup jquery ui datepicker for control panel
-    $('#datetime').datepicker({
-        duration: '',
-        showTime: true,
-        constrainInput: false,
-        stepMinutes: 10,
-        stepHours: 1,
-        altTimeField: '',
-        time24h: false
-    });
 
     // configure jGrowl
     $.jGrowl.defaults.position = "bottom-right";

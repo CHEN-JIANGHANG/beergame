@@ -105,7 +105,8 @@ def _set_last_clicked(game, role, value):
         return True
     return False
 
-def _get_shipment2_html(period):
+def _get_shipment2_html(game, role, data):
+    period = _get_period(game, role, data['period']) 
     return render_to_string('shipment_2.html', {'period': period}) 
 
 def ajax(request, game, role):
@@ -121,7 +122,7 @@ def ajax(request, game, role):
             period = _get_period(game, role, data['period']) 
             value = getattr(period, data['get'])
 
-            tmpl = render_to_string('shipment_2.html', {'period': period}) 
+            tmpl = _get_shipment2_html(game, role, data);
             
             return HttpResponse(json.dumps({'html': tmpl, data['get']: value}),
                                 mimetype='text/javascript')
@@ -152,17 +153,37 @@ def ajax(request, game, role):
         if data['check'] == 'teams_ready':
             teams = Team.objects.filter(game=game)
             not_ready = []
+            ready = []
             for team in teams:
-                if team.last_completed_period != int(data['period']):
+                if team.role == role:
+                    continue
+                # game just started
+                # or
+                # teams have all clicked order during the current period
+                if int(data['period']) == 0:
+                    print '%s ready because period is zero'
+                    ready.append(team.role)
+                elif (team.last_completed_period == int(data['period']) - 1 and \
+                    team.last_clicked_button == 'order'):
+                    print '%s ready because last_clicked was order and last finished \
+                        period was %s' % (role, data['period'])
+                    ready.append(team.role)
+                elif (team.last_completed_period == int(data['period'])):
+                    print '%s was ready because last completed the current period'
+                    ready.append(team.role)
+                else:
+                    print '%s was not ready: last_clicked: %s and last_completed: %s' \
+                            % (role, team.last_clicked_button, team.last_completed_period)
                     not_ready.append(team.role)
 
             if len(not_ready) > 0:
                 return HttpResponse(json.dumps( {
                                                 'teams_ready': False,
-                                                'waiting_for': not_ready 
+                                                'waiting_for': not_ready,
+                                                'ready': ready
                                                 }),
                             mimetype='text/javascript')
-            return HttpResponse(json.dumps({'teams_ready':True}),
+            return HttpResponse(json.dumps({'teams_ready':True, 'ready':ready}),
                         mimetype='text/javascript')
 
         elif data['check'] == 'can_ship':
@@ -232,10 +253,16 @@ def ajax(request, game, role):
         return HttpResponse(json.dumps({'error':'set argument does not exist'}),
                     mimetype='text/javascript')
 
+    # @step = start
+    # @period = period for the last completed round
     elif data.has_key('step') and data.has_key('period'): 
         team = get_object_or_404(Team, game=game, role=role)
         # start
         if data['step'] == 'start':
+
+            team.last_completed_period = int(data['period'])
+            team.save()
+
             per = int(data['period'])
             latest_period = Period.objects.filter(team=team).order_by('-number')[0]
 
@@ -252,6 +279,8 @@ def ajax(request, game, role):
                         shipment_1=latest_period.shipment_1, shipment_2=latest_period.shipment_2, 
                         cumulative_cost=latest_period.cumulative_cost)
             period.save()
+
+            _set_last_clicked(game, role, "start")
             
             return HttpResponse(json.dumps({'success':'completed start step'}),
                         mimetype='text/javascript')
@@ -273,7 +302,14 @@ def ajax(request, game, role):
 
             period.save()
 
-            return HttpResponse(json.dumps({'success':'completed step 1'}),
+            _set_last_clicked(game, role, "step1")
+
+            tmpl = _get_shipment2_html(game, role, data);
+
+            return HttpResponse(json.dumps({
+                                            'success': 'completed step 1',
+                                            'html': tmpl
+                                            }),
                     mimetype='text/javascript')
 
         elif data['step'] == 'step2':
@@ -297,12 +333,16 @@ def ajax(request, game, role):
 
             period.save()
 
+            _set_last_clicked(game, role, "step2")
+
             return HttpResponse(json.dumps({'step2':period.demand}),
                     mimetype='text/javascript')
 
         elif data['step'] == 'step3':
             team = Team.objects.filter(game=game).filter(role=role)
             all_periods = Period.objects.filter(team=team).exclude(number=0).order_by('-number')
+
+            _set_last_clicked(game, role, "step3")
             return render_to_response('period_table.html', {'all_periods':all_periods}) 
              
     elif data.has_key('shipment') and data.has_key('period'):
@@ -363,6 +403,8 @@ def ajax(request, game, role):
 
         period.save()
 
+        _set_last_clicked(game, role, "ship")
+
         return HttpResponse(json.dumps({'success':'shipped %d' % shipment}),
                 mimetype='text/javascript')
 
@@ -388,10 +430,7 @@ def ajax(request, game, role):
             upstream_period.order_2 = order
             upstream_period.save()
 
-        team.last_completed_period = int(data['period'])
-        team.save()
-
-        _set_last_clicked(game, role, 'none')
+        _set_last_clicked(game, role, 'order')
 
         return HttpResponse(json.dumps({'success':'ordered %d' % order}),
                     mimetype='text/javascript')

@@ -649,9 +649,17 @@ var BeerGame = function() {
         // handle amount to ship
         var amt_to_ship = parseInt($('#amt_to_ship').val(), 10);
 
-        // check validate
+        // check if number 
         if (isNaN(amt_to_ship)) {
             $('#shipment_errors').text('Please enter a value!');
+            $('#ship_btn').attr('disabled', false);
+        }
+        else if (amt_to_ship < 0) {
+            $('#shipment_errors').text('Please enter non-negative value!');
+            $('#ship_btn').attr('disabled', false);
+        }
+        else if (amt_to_ship > this.get_order() + this.get_backlog()) {
+            $('#shipment_errors').text('Shipment cannot exceed the order + backlog!');
             $('#ship_btn').attr('disabled', false);
         }
         // is a valid number 
@@ -718,6 +726,10 @@ var BeerGame = function() {
 
         if (isNaN(order)) {
             $('#order_errors').text('Please enter a value to order!');
+            $('#order_btn').attr('disabled',false);
+        }
+        else if (order < 0) {
+            $('#order_errors').text('Please enter a non-negative value!');
             $('#order_btn').attr('disabled',false);
         }
         else { 

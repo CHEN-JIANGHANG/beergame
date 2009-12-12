@@ -418,6 +418,15 @@ var BeerGame = function() {
                 var per_btn = $('#next_period_btn');
                 per_btn.attr('disabled', false);
                 per_btn.val('Start next period');
+
+                // remove old notifications
+                for (var jdx in data.ready) {
+                    var elm = $(['.',data.ready[jdx]].join(''));
+                    if (elm.length !== 0) {
+                        // should only be one item
+                        elm.remove();
+                    }
+                }
             },
             function(data) {
                 if ('waiting_for' in data && self.get_period() !== 0) {

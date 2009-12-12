@@ -1,33 +1,12 @@
+// LOGGING
 jQuery.fn.log = function (msg) {
     console.log("%s: %o", msg, this);
     return this;
 };
 
-/* CONFIGURATION */
-// if AJAX_URL is already set, we'll use that
-// this is used for testing page
-if (typeof window.AJAX_URL == "undefined") {
-    AJAX_URL = 'ajax/'; 
-}
-
 function log_error(msg) {
     $('#errors ul').prepend('<li>'+msg+'</li>');
 }
-
-// configure AJAX 
-$.ajaxSetup({
-    url: AJAX_URL, 
-    cache: false,
-    type: 'POST',
-    dataType: 'json',
-    error: function(req, stat, err) {
-        log_error('ajax error: '+stat+' - '+err);
-    }
-});
-
-// configure jGrowl
-$.jGrowl.defaults.position = "bottom-right";
-/* END CONFIGURATION */
 
 (function() {
 
@@ -36,8 +15,31 @@ var BeerGame = function() {
     CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
     FADE_SPEED = 700; // milliseconds for fade
     DEBUG = true;
+
+    // if AJAX_URL is already set, we'll use that
+    // this is used for testing page
+    if (typeof window.AJAX_URL == "undefined") {
+        AJAX_URL = 'ajax/'; 
+    } 
     /* END CONSTANTS */
-    
+
+    /* CONFIGURATION */
+
+    // configure AJAX 
+    $.ajaxSetup({
+        url: AJAX_URL, 
+        cache: false,
+        type: 'POST',
+        dataType: 'json',
+        error: function(req, stat, err) {
+            log_error('ajax error: '+stat+' - '+err);
+        }
+    });
+
+    // configure jGrowl
+    $.jGrowl.defaults.position = "bottom-right";
+    /* END CONFIGURATION */
+
     // ATTRIBUTES 
     this.period = undefined;
     this.inventory = undefined;
@@ -217,7 +219,6 @@ var BeerGame = function() {
         $('#amt_to_order').val(val);
     };
 
-
     this.get_shipment_recommendation = function(backlog, inventory, order) {
         this.log_debug('backlog: '+backlog);
         this.log_debug('inventory: '+inventory);
@@ -317,6 +318,9 @@ var BeerGame = function() {
                 $('#order_btn').val('Order'); 
                 $('#step3_btn').stopTime();
                 self.display_message('You can now order');
+            },
+            function() {
+                // do nothing while waiting
             }
         );
     };
@@ -597,43 +601,38 @@ var BeerGame = function() {
     this.step2_btn_click = function() {
         var self = this;
         $.ajax({
-                data: {
-                        period: self.get_period(),
-                        step: 'step2'
-                },
-                success: function(data, textStatus) {
-                    self.error_check(data);
-                    if ('step2' in data) {
-                        if (data.step2 !== null) {
-                            self.set_order(data.step2); 
-                        }
-                        else {
-                            log_error('current order returned null value');
-                        }
+            data: {
+                    period: self.get_period(),
+                    step: 'step2'
+            },
+            success: function(data, textStatus) {
+                self.error_check(data);
+                if ('step2' in data) {
+                    if (data.step2 !== null) {
+                        self.set_order(data.step2); 
                     }
                     else {
-                        log_error('error returning step2');
+                        log_error('current order returned null value');
                     }
                 }
+                $('#ship_btn').attr('disabled',true); 
+                $('#ship_btn').val('waiting...'); 
 
-        });
-        $('#ship_btn').attr('disabled',true); 
-        $('#ship_btn').val('waiting...'); 
-        self.listen_for_can_ship();
+                self.listen_for_can_ship();
 
-        $('#order1').fadeOut(FADE_SPEED, function() {
-            $('#order1').remove();
-            $('#order2').attr('id','order1');
-            $('#order2_amt').attr('id','order1_amt');
-            $('#order1 > h4').text('Incoming Order #1');
-            $('#order1').after('<div id="order2" class="lead_tile">' + 
-                '<h4>Incoming Order #2</h4><p id="order2_amt">Waiting for Order from Customer</p></div>');
-            
-            $('#order2').corner();
+                $('#order1').fadeOut(FADE_SPEED, function() {
+                    $('#order1').remove();
+                    $('#order2').attr('id','order1');
+                    $('#order2_amt').attr('id','order1_amt');
+                    $('#order1 > h4').text('Incoming Order #1');
+                    $('#order1').after(data.html);
+                    $('#order2').corner();
 
-            self.set_shipment_recommendation();
+                    self.set_shipment_recommendation();
 
-            self.listen_for_order();
+                    self.listen_for_order();
+                });
+            }
         });
     };
 

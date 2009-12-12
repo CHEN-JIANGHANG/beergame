@@ -51,7 +51,8 @@
             <p id="ship1_amt">{{ period.shipment_1 }}</p>
         </div>
         {% include "shipment_2.html" %}
-        <br class="clear" />
+        <!-- using the <br> in Chrome4 didn't work, <p> does -->
+        <p class="clear" /> </p>
     </div>
 </div>
 
@@ -76,19 +77,7 @@
                 {% endif %}
             </p>
         </div>
-        <div class="lead_tile" id="order2">
-            <h4>Incoming Order #2</h4>
-            <p id="order2_amt">
-                {% ifequal period.order_2 None %}
-                    Waiting for Order from Customer
-                {% endifequal %}
-                {% ifnotequal period.order_2 None %}
-                    {% if display_orders %}
-                        {{ period.order_2 }}
-                    {% endif %}
-                {% endifnotequal %}
-            </p>
-        </div>
+        {% include "order_2.html" %}
         <div id="shipping">
             <label for="amt_to_ship">Enter quantity to deliver</label>
             <input type="text" id="amt_to_ship" />

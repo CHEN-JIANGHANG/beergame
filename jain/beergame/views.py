@@ -109,6 +109,10 @@ def _get_shipment2_html(game, role, data):
     period = _get_period(game, role, data['period']) 
     return render_to_string('shipment_2.html', {'period': period}) 
 
+def _get_order2_html(game, role, data):
+    period = _get_period(game, role, data['period']) 
+    return render_to_string('order_2.html', {'period': period}) 
+
 def ajax(request, game, role):
     game = get_object_or_404(Game, pk=game)
     
@@ -333,9 +337,14 @@ def ajax(request, game, role):
 
             period.save()
 
+            tmpl = _get_order2_html(game, role, data)
+
             _set_last_clicked(game, role, "step2")
 
-            return HttpResponse(json.dumps({'step2':period.demand}),
+            return HttpResponse(json.dumps({
+                                            'step2':period.demand,
+                                            'html': tmpl
+                                            }),
                     mimetype='text/javascript')
 
         elif data['step'] == 'step3':

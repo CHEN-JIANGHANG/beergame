@@ -143,6 +143,13 @@ div#period_table table td {
     text-align: center;
 }
 
+div#period_table table tr.even {
+    background: #dedede;
+}
+
+div#period_table table tr.odd {
+}
+
 div#back_to_top {
     margin: 20px 0 0 0;
     text-align: center;

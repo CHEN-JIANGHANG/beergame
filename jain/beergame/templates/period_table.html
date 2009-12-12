@@ -17,7 +17,7 @@
     {% endifequal %}
     {% ifnotequal all_periods|length 0 %}
         {% for per in all_periods %}
-        <tr>
+        <tr class="{% cycle 'odd' 'even' %}">
             <td>{{ per.number }}</td>
             <td>{{ per.demand }}</td>
             <td>{{ per.shipped }}</td>

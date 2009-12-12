@@ -17,6 +17,8 @@
 
     {% block extracss %}{% endblock %}
 
+    <link rel="shortcut icon" href="/static/img/beergame.ico" /> 
+
     {% block preextrajs %}{% endblock %}
 
     {% if not debug %}
@@ -49,8 +51,6 @@
     <div id="masthead">
         <div id="masthead-logo">
             <h1 id="beergame-header"></h1>
-        </div>
-        <div id="status-message">
         </div>
     {% block body %}
     {% endblock %}

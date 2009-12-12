@@ -12,9 +12,9 @@ function log_error(msg) {
 
 var BeerGame = function() {
     /* CONSTANTS */
-    CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
-    FADE_SPEED = 700; // milliseconds for fade
-    DEBUG = true;
+    var CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
+    var FADE_SPEED = 700; // milliseconds for fade
+    var DEBUG = true;
 
     // if AJAX_URL is already set, we'll use that
     // this is used for testing page
@@ -62,12 +62,6 @@ var BeerGame = function() {
     // outputs a message using jGrowl
     this.display_message = function(msg) {
         $.jGrowl(msg);
-    };
-
-    // updates the status message at top of screen
-    // XXX not used anywhere, possibly delete
-    this.update_status = function(msg) {
-        $('#status-message').text(msg);
     };
     // END NOTIFICATIONS
 

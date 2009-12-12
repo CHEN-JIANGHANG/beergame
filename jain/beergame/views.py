@@ -467,6 +467,7 @@ def cp(request):
                                                 'now': datetime.now(),
                                                 'games': games,
                                                 'game_form': GameForm(),
+                                                'cp': True,
                                             },
                                             context_instance=RequestContext(request))
 

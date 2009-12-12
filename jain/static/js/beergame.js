@@ -543,6 +543,9 @@ var BeerGame = function() {
     };
 
     this.next_period_btn_click = function() {
+        // kill the wait for teams timer
+        // for those people that are fast clickers
+        $('#order_btn').stopTime();
         var self = this;
         $.ajax({
                 data: {

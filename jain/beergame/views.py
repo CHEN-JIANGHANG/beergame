@@ -28,7 +28,13 @@ def start(request):
 
 def create_game(request):
     game = Game()
-    GameForm(request.POST, instance=game).save()
+    game_form = GameForm(request.POST, instance=game)
+
+    if game_form.is_valid():
+        game_form.save()
+    else:
+        error = "Name of game already exists in the database.  Please go back and try another name."
+        return render_to_response('create_game.html', {'error': error})
 
     # create teams
     for role in Team.ROLE_CHOICES:

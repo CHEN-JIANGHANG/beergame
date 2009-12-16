@@ -160,6 +160,9 @@ div.error {
 }
 
 /* control panel */
+div#cpadmin { 
+    text-align: right;
+}
 div#chart-games {
     float: left;
     padding: 15px;

@@ -7,6 +7,8 @@ from django.template import RequestContext
 from django.template.loader import render_to_string
 from django.http import HttpResponse
 from django.db.models import F
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 
 from django.forms.models import modelformset_factory
 
@@ -25,7 +27,7 @@ def start(request):
                                     'games': games,
                                 },
                                 context_instance=RequestContext(request))
-
+@login_required
 def create_game(request):
     game = Game()
     game_form = GameForm(request.POST, instance=game)
@@ -464,7 +466,12 @@ def ajax(request, game, role):
         return HttpResponse(json.dumps({'error': 'missing required arguments'}),
                     mimetype='text/javascript')
 
+def logout_view(request):
+    logout(request)
+    return render_to_response('logout.html', {})
+
 # admin views
+@login_required
 def cp(request):
     games = Game.objects.all()
         
@@ -474,7 +481,7 @@ def cp(request):
                                                 'cp': True,
                                             },
                                             context_instance=RequestContext(request))
-
+@login_required
 def get_chart(request):
     data = request.REQUEST.copy()
     if data.has_key('id'):
@@ -519,7 +526,7 @@ def get_chart(request):
         return HttpResponse(json.dumps({'error': 'missing required arguments'}),
                     mimetype='text/javascript')
         
-
+@login_required
 def output_csv(request):
     import csv
     from datetime import datetime

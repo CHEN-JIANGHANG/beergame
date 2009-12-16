@@ -11,10 +11,14 @@ function log_error(msg) {
 (function() {
 
 var BeerGame = function() {
+    // remap jQuery to local variable
+    // so we don't break in compatibility mode
+    var $ = window.jQuery;
+
     /* CONSTANTS */
+    var DEBUG = true;
     var CHECK_INTERVAL = 4000; // milliseconds to hit server for updates
     var FADE_SPEED = 700; // milliseconds for fade
-    var DEBUG = true;
 
     // if AJAX_URL is already set, we'll use that
     // this is used for testing page
@@ -24,7 +28,6 @@ var BeerGame = function() {
     /* END CONSTANTS */
 
     /* CONFIGURATION */
-
     // configure AJAX 
     $.ajaxSetup({
         url: AJAX_URL, 
@@ -41,15 +44,15 @@ var BeerGame = function() {
     /* END CONFIGURATION */
 
     // ATTRIBUTES 
-    this.period = undefined;
-    this.inventory = undefined;
-    this.backlog = undefined;
-    this.last_clicked = undefined;
+    this.period;
+    this.inventory;
+    this.backlog;
+    this.last_clicked;
 
     // METHODS
 
     // DEBUGGING
-
+    // TODO make more generlized logging
     this.log_debug = function(msg) {
         if (window.console && DEBUG) {
             console.log(msg);
@@ -58,7 +61,6 @@ var BeerGame = function() {
     // END DEBUGGING
 
     // NOTIFICATIONS
-
     // outputs a message using jGrowl
     this.display_message = function(msg) {
         $.jGrowl(msg);
@@ -70,25 +72,21 @@ var BeerGame = function() {
         if (this.inventory !== undefined) {
             return this.inventory;
         }
-        else {
-            // try to get inventory from
-            // the HTML
-            var inv_elm = $('#inv_amt');
-            var inv_num = parseInt(inv_elm.text(), 10);
+        // try to get inventory from
+        // the HTML
+        var inv_elm = $('#inv_amt');
+        var inv_num = parseInt(inv_elm.text(), 10);
 
-            if (!isNaN(inv_num)) {
-                this.inventory = inv_num;
-                return this.inventory; 
-            }
-            else {
-                // an error?
-                // can't get inventory from HTML
-                // get inventory from server
-                log_error('Inventory was not an integer');
-                this._reset_inventory();
-                return this.inventory;
-            }
+        if (!isNaN(inv_num)) {
+            this.inventory = inv_num;
+            return this.inventory; 
         }
+        // an error?
+        // can't get inventory from HTML
+        // get inventory from server
+        log_error('Inventory was not an integer');
+        this._reset_inventory();
+        return this.inventory;
     };
 
     this.set_inventory = function(val) {
@@ -117,25 +115,21 @@ var BeerGame = function() {
         if (this.period !== undefined) {
             return this.period;
         }
-        else {
-            // attempt to get period from HTML
-            var period_text = $('#period_num').text();
-            var html_period = parseInt(period_text, 10);
-            if (!isNaN(html_period)) {
-                this.period = html_period;
-                return html_period;
-            }
-            else if (period_text.indexOf('Just started') >= 0) {
-                this.period = 0;
-                return 0;
-            }
-            // can't get from HTML, get from server
-            else {
-                log_error('unable to get period from HTML');
-                this._reset_period();
-                return this.period;
-            }
+        // attempt to get period from HTML
+        var period_text = $('#period_num').text();
+        var html_period = parseInt(period_text, 10);
+        if (!isNaN(html_period)) {
+            this.period = html_period;
+            return html_period;
         }
+        if (period_text.indexOf('Just started') >= 0) {
+            this.period = 0;
+            return 0;
+        }
+        // can't get from HTML, get from server
+        log_error('unable to get period from HTML');
+        this._reset_period();
+        return this.period;
     };
 
     this.set_period = function(period) {
@@ -199,9 +193,7 @@ var BeerGame = function() {
         var shipment_input = $('#amt_to_ship');
         shipment_input.val(val);
 
-        if (select) {
-            shipment_input.select(); 
-        }
+        if (select) { shipment_input.select(); }
     };
     
     // outgoing order
@@ -224,21 +216,15 @@ var BeerGame = function() {
                 return backlog + order;
             }
             // can't deliver full backlog and order
-            else {
-                return inventory; 
-            }
+            return inventory; 
         }
         // no backlog
-        else {
-            // order is more than inventory
-            if (order > inventory) {
-                return inventory; 
-            }
-            // order is less than inventory
-            else {
-                return order;
-            }
+        // order is more than inventory
+        if (order > inventory) {
+            return inventory; 
         }
+        // order is less than inventory
+        return order;
     };
 
     this.set_shipment_recommendation = function() {
@@ -252,10 +238,8 @@ var BeerGame = function() {
         if (this.backlog !== undefined) {
             return this.backlog;
         }
-        else {
-            this._reset_backlog();
-            return this.backlog;
-        }
+        this._reset_backlog();
+        return this.backlog;
     };
 
     this._reset_backlog = function() {
@@ -276,48 +260,6 @@ var BeerGame = function() {
         });
     };
 
-    this.listen_for_can_ship = function() {
-        var self = this;
-        function check_can_ship() {
-            $.ajax({
-                data: {
-                        check: 'can_ship',
-                        period: self.get_period()
-                },
-                success: function(data, textStatus) {
-                    self.error_check(data);
-                    if ('can_ship' in data) {
-                        if (data.can_ship) {
-                            $('#ship_btn').attr('disabled',false); 
-                            $('#ship_btn').val('Ship'); 
-                            $('#step2_btn').stopTime();
-                            self.display_message('You can now ship');
-                        }
-                    }
-                }
-            });
-        }
-        check_can_ship();
-        $('#step2_btn').everyTime(CHECK_INTERVAL, function() {
-            check_can_ship();
-        });
-    };
-
-    // waits until the supplier can receive an order 
-    this.listen_for_can_order = function() {
-        var self = this;
-        this.check_until('#step3_btn', 'check', 'can_order',
-            function() {
-                $('#order_btn').attr('disabled',false); 
-                $('#order_btn').val('Order'); 
-                $('#step3_btn').stopTime();
-                self.display_message('You can now order');
-            },
-            function() {
-                // do nothing while waiting
-            }
-        );
-    };
     
     /*
      * @data - data returned from ajax request
@@ -373,6 +315,35 @@ var BeerGame = function() {
         });
     };
 
+    this.listen_for_can_ship = function() {
+        var self = this;
+        this.check_until('#step2_btn', 'check', 'can_ship',
+            function() {
+                $('#ship_btn').attr('disabled',false); 
+                $('#ship_btn').val('Ship'); 
+                self.display_message('You can now ship');
+            },
+            function() {
+                // do nothing while waiting
+            }
+        );
+    };
+
+    // waits until the supplier can receive an order 
+    this.listen_for_can_order = function() {
+        var self = this;
+        this.check_until('#step3_btn', 'check', 'can_order',
+            function() {
+                $('#order_btn').attr('disabled',false); 
+                $('#order_btn').val('Order'); 
+                $('#step3_btn').stopTime();
+                self.display_message('You can now order');
+            },
+            function() {
+                // do nothing while waiting
+            }
+        );
+    };
 
     // TODO can i make this a better function name? 
     this.listen_for_shipment = function() {
@@ -380,7 +351,12 @@ var BeerGame = function() {
             $('#shipment2').remove();
             $('#shipment1').after(data.html);
             $('#shipment2').corner();
-
+            
+            // this doesn't work, think of way to get shipment amount
+            // and update the HTML without reloading the whole table
+            //if (data.last_clicked == 'step3' || data.last_clicked == 'order') {
+            //    this.reload_period_table();
+            //}
             // TODO check if need to reload the period table
             // when shipment2 arrives to keep data current
             // It was AJAX requesting last_click and if it was

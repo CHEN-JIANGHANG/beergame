@@ -128,7 +128,13 @@ def ajax(request, game, role):
 
             tmpl = _get_shipment2_html(game, role, data);
             
-            return HttpResponse(json.dumps({'html': tmpl, data['get']: value}),
+            team = get_object_or_404(Team, game=game, role=role)
+
+            return HttpResponse(json.dumps({
+                                            'html': tmpl, 
+                                            data['get']: value,
+                                            'last_clicked': team.last_clicked_button,
+                                           }),
                                 mimetype='text/javascript')
         
         period = _get_period(game, role, data['period']) 

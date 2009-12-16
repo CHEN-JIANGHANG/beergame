@@ -5,10 +5,8 @@
 </div> <!-- end masthead -->
 <h2>Join a game</h2>
 {% ifequal games|length 0 %}
-No recent games.
-{% endifequal %}
-
-{% ifnotequal games|length 0 %}
+No available games.
+{% else %}
 <ul>
     {% for game in games %}
         <li>
@@ -17,6 +15,6 @@ No recent games.
         </li>
     {% endfor %}
 </ul>
-{% endifnotequal %}
+{% endifequal %}
 
 {% endblock %}

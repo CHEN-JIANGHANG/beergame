@@ -18,7 +18,7 @@ from jain import settings
 def start(request):
     # grab games started in the last hour
     hour_before = datetime.now() - timedelta(hours=72) 
-    games = Game.objects.filter(date_started__gt=hour_before)
+    games = Game.objects.filter(make_available=True)
 
     return render_to_response('start.html', 
                                 {
@@ -27,14 +27,12 @@ def start(request):
                                 context_instance=RequestContext(request))
 
 def create_game(request):
-    req = request.POST.copy()
-
-    game = Game(name=req['name'])
-    game.save()
+    game = Game()
+    GameForm(request.POST, instance=game).save()
 
     # create teams
     for role in Team.ROLE_CHOICES:
-        Team(game=game, role=role[0], last_clicked_button='none').save()
+        Team(game=game, role=role[0]).save()
     
     return render_to_response('create_game.html', {'game': game})
 
@@ -465,12 +463,6 @@ def cp(request):
     games = Game.objects.all()
         
     return render_to_response('cp.html',    {
-                                                'months': xrange(1,13),
-                                                'days': xrange(1,32),
-                                                'years': xrange(2009,2010),
-                                                'hours': xrange(1, 13),
-                                                'minutes': ['00','15','30','45'],
-                                                'now': datetime.now(),
                                                 'games': games,
                                                 'game_form': GameForm(),
                                                 'cp': True,

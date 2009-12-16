@@ -3,6 +3,7 @@ from django.db import models
 class Game(models.Model):
     date_started = models.DateTimeField(auto_now_add=True)
     name = models.CharField(max_length=40, unique=True)
+    make_available = models.BooleanField(default=True)
 
     def __unicode__(self):
         return self.name
@@ -28,7 +29,7 @@ class Team(models.Model):
     game = models.ForeignKey(Game)
     role = models.CharField(max_length=12, choices=ROLE_CHOICES)
     last_completed_period = models.IntegerField(default=0)
-    last_clicked_button = models.CharField(max_length=12, choices=BUTTONS) 
+    last_clicked_button = models.CharField(max_length=12, choices=BUTTONS, default="none") 
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None

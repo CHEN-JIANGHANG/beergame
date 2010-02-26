@@ -35,7 +35,7 @@ var BeerGame = function() {
         type: 'POST',
         dataType: 'json',
         error: function(req, stat, err) {
-            log_error('ajax error: 'req+' - '+stat+' - '+err);
+            log_error('ajax error: '+req+' - '+stat+' - '+err);
         }
     });
 

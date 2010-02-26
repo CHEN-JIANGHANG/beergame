@@ -173,23 +173,24 @@ def ajax(request, game, role):
             for team in teams:
                 if team.role == role:
                     continue
+                # removed print statements mod_wsgi restricted sys.stdout access
                 # game just started
                 # or
                 # teams have all clicked order during the current period
                 if int(data['period']) == 0:
-                    print '%s ready because period is zero'
+                    #print '%s ready because period is zero'
                     ready.append(team.role)
                 elif (team.last_completed_period == int(data['period']) - 1 and \
                     team.last_clicked_button == 'order'):
-                    print '%s ready because last_clicked was order and last finished \
-                        period was %s' % (role, data['period'])
+                    #print '%s ready because last_clicked was order and last finished \
+                    #    period was %s' % (role, data['period'])
                     ready.append(team.role)
                 elif (team.last_completed_period == int(data['period'])):
-                    print '%s was ready because last completed the current period'
+                    #print '%s was ready because last completed the current period'
                     ready.append(team.role)
                 else:
-                    print '%s was not ready: last_clicked: %s and last_completed: %s' \
-                            % (role, team.last_clicked_button, team.last_completed_period)
+                    #print '%s was not ready: last_clicked: %s and last_completed: %s' \
+                    #        % (role, team.last_clicked_button, team.last_completed_period)
                     not_ready.append(team.role)
 
             if len(not_ready) > 0:

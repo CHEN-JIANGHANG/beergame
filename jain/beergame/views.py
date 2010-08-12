@@ -86,7 +86,7 @@ def _can_ship(game, role, client_period):
     # verify that the last clicked button was step2 (the one before ship)
     if this_team.last_clicked_button != 'step2':
         raise GameError('Cannot ship.  Team has not clicked Step 2 button.'+\
-                        'Last clicked button is %s' % (team.last_clicked_button))
+                        'Last clicked button is %s' % (this_team.last_clicked_button))
 
     # retailers can always ship, since they are not actually shipping
     # to an object (customers don't exist in database)

@@ -1,16 +1,73 @@
+// settings
 var DEBUG = true;
 
-// LOGGING
-jQuery.fn.log = function (msg) {
-    console.log("%s: %o", msg, this);
-    return this;
-};
+// logging
+(function() {
+
+    var levels = ['debug', 'info', 'warn', 'error', 'critical', 'log'];
+
+    if (!window.console) {
+        // no console, so no logging
+        // assign empty function to avoid errors
+        window.console = {
+            log: function () {}
+        };  
+    }
+
+    for (ii = 0; ii < levels.length; ii++) {
+        if (!console[levels[ii]]) {
+            console[levels[ii]] = console.log;
+        }
+    }
+
+})();
 
 function log_error(msg) {
     $('#errors ul').prepend('<li>'+msg+'</li>');
 }
 
-(function() {
+var Base = {
+    checkError: function(data, textStatus, err) {
+        
+    }
+}
+
+// Inventory
+function Inventory() {
+    var elm = $('#inv_amt');
+    var inv = undefined;
+
+    this.get = function() {
+        console.info('getting inventory');
+        // try to get from HTML
+        this.inv = parseInt(elm.text(), 10); 
+        console.debug(['got ', this.inv, ' for inventory from HTML'].join(''));
+
+        // check if inventory was a number
+        // if it's a number we're good
+        // XXX possible hack here?
+        if (!isNaN(this.inv)) {
+            console.debug('inventory was number...');
+            return this.inv;
+        }
+    };
+
+    // grabs canonical inventory from server
+    this.getFromServer = function() {
+        var self = this;
+        // get period from server
+        $.ajax({
+            async: false,
+            data: {current: 'inventory'},
+            success: function(data, textStatus) {
+                self.error_check(data);
+                if ('inventory' in data) {
+                    self.inventory = parseInt(data.inventory, 10);
+                }
+            }
+        });
+    };
+};
 
 var BeerGame = function() {
     // remap jQuery to local variable
@@ -30,18 +87,16 @@ var BeerGame = function() {
     /* END CONSTANTS */
 
     /* CONFIGURATION */
-    // configure AJAX 
     $.ajaxSetup({
         url: AJAX_URL, 
         cache: false,
         type: 'POST',
         dataType: 'json',
         error: function(req, stat, err) {
-            log_error('ajax error: '+req+' - '+stat+' - '+err);
+            console.error('ajax error: '+req+' - '+stat+' - '+err);
         }
     });
 
-    // configure jGrowl
     $.jGrowl.defaults.position = "bottom-right";
     /* END CONFIGURATION */
 
@@ -50,17 +105,7 @@ var BeerGame = function() {
     this.inventory;
     this.backlog;
     this.last_clicked;
-
-    // METHODS
-
-    // DEBUGGING
-    // TODO make more generlized logging
-    this.log_debug = function(msg) {
-        if (window.console && DEBUG) {
-            console.log(msg);
-        }
-    };
-    // END DEBUGGING
+    // END ATTRIBUTES
 
     // NOTIFICATIONS
     // outputs a message using jGrowl
@@ -69,50 +114,7 @@ var BeerGame = function() {
     };
     // END NOTIFICATIONS
 
-    // get the current inventory 
-    this.get_inventory = function() {
-        if (this.inventory !== undefined) {
-            return this.inventory;
-        }
-        // try to get inventory from
-        // the HTML
-        var inv_elm = $('#inv_amt');
-        var inv_num = parseInt(inv_elm.text(), 10);
-
-        if (!isNaN(inv_num)) {
-            this.inventory = inv_num;
-            return this.inventory; 
-        }
-        // an error?
-        // can't get inventory from HTML
-        // get inventory from server
-        log_error('Inventory was not an integer');
-        this._reset_inventory();
-        return this.inventory;
-    };
-
-    this.set_inventory = function(val) {
-        this.inventory = val; 
-        var inv_elm = $('#inv_amt');
-        inv_elm.text(val);
-    };
-
-    // grabs canonical inventory from server
-    this._reset_inventory = function() {
-        var self = this;
-        // get period from server
-        $.ajax({
-            async: false,
-            data: {current: 'inventory'},
-            success: function(data, textStatus) {
-                self.error_check(data);
-                if ('inventory' in data) {
-                    self.inventory = parseInt(data.inventory, 10);
-                }
-            }
-        });
-    };
-
+    
     this.get_period = function() {
         if (this.period !== undefined) {
             return this.period;
@@ -129,7 +131,7 @@ var BeerGame = function() {
             return 0;
         }
         // can't get from HTML, get from server
-        log_error('unable to get period from HTML');
+        console.error('unable to get period from HTML');
         this._reset_period();
         return this.period;
     };
@@ -176,7 +178,7 @@ var BeerGame = function() {
     this.get_order = function() {
         var order = parseInt($('#order_amt').text(), 10); 
         if (isNaN(order)) {
-            log_error('order was not a number');
+            console.error('order was not a number');
             return false;
         }
         return order;
@@ -208,9 +210,9 @@ var BeerGame = function() {
     };
 
     this.get_shipment_recommendation = function(backlog, inventory, order) {
-        this.log_debug('backlog: '+backlog);
-        this.log_debug('inventory: '+inventory);
-        this.log_debug('order: '+order);
+        console.debug('backlog: '+backlog);
+        console.debug('inventory: '+inventory);
+        console.debug('order: '+order);
         // backlog
         if (backlog > 0) {
             // can deliver both backlog and order
@@ -269,7 +271,7 @@ var BeerGame = function() {
      */
     this.error_check = function(data) {
         if (data.error !== undefined) {
-            log_error(data.error);
+            console.error(data.error);
             return false;
         }
         return true;
@@ -321,8 +323,8 @@ var BeerGame = function() {
         var self = this;
         this.check_until('#step2_btn', 'check', 'can_ship',
             function() {
-                $('#ship_btn').val('Ship'); 
                 $('#ship_btn').attr('disabled',false); 
+                $('#ship_btn').val('Ship'); 
                 self.display_message('You can now ship');
             },
             function() {
@@ -382,7 +384,7 @@ var BeerGame = function() {
      * Alerts which teams it is waiting for
      */
     this.wait_for_teams = function() {
-        this.log_debug('calling wait for teams');
+        console.debug('calling wait for teams');
         var self = this;
         this.check_until('#order_btn', 'check', 'teams_ready', 
             function(data) {
@@ -483,7 +485,7 @@ var BeerGame = function() {
                         }
                     }
                     else {
-                        log_error('last clicked returned an invalid button: '+last_clicked);
+                        console.error('last clicked returned an invalid button: '+last_clicked);
                     }
         
                     // sets the listens for shipments and orders
@@ -531,9 +533,6 @@ var BeerGame = function() {
                     period: self.get_period()
                 }, success: function(data, stat) {
                     self.error_check(data);
-
-                    // enable the next button
-                    self.enable_next('start');
                 }
         });
 
@@ -563,9 +562,6 @@ var BeerGame = function() {
                 },
                 success: function(data, textStatus) {
                     self.error_check(data);
-
-                    // enable the next button
-                    self.enable_next('step1');
 
                     // remove shipment1 div
                     var ship1_div = $('#shipment1');
@@ -602,7 +598,7 @@ var BeerGame = function() {
                         self.set_order(data.step2); 
                     }
                     else {
-                        log_error('current order returned null value');
+                        console.error('current order returned null value');
                     }
                 }
                 $('#ship_btn').attr('disabled',true); 
@@ -667,8 +663,6 @@ var BeerGame = function() {
                         },
                         success: function(data, textStatus) {
                             self.error_check(data);
-
-                            self.enable_next('ship');
                         }
                 });
             }
@@ -743,15 +737,15 @@ var BeerGame = function() {
 
     $(this)
         .bind('next_period_btn', function() {
-            this.log_debug('caught next_period_btn event');
+            console.debug('caught next_period_btn event');
             this.next_period_btn_click();
         })
         .bind('step1_btn', function() {
-            this.log_debug('caught step1 btn event');
+            console.debug('caught step1 btn event');
             this.step1_btn_click();
         })
         .bind('step2_btn', function() {
-            this.log_debug('caught step2 btn event');
+            console.debug('caught step2 btn event');
             this.step2_btn_click(); 
         })
         .bind('ship_btn', function() {
@@ -806,7 +800,7 @@ var BeerGame = function() {
             $(this.BUTTONS[btn]).click(function() {
                 $(self).trigger($(this).data('event'), 
                                     [$(this).data('name'), $(this).attr('id')]);
-                self.log_debug('calling game events');
+                console.debug('calling game events');
                 $(self).trigger($(this).attr('id'));
             });
         }
@@ -826,9 +820,9 @@ var BeerGame = function() {
 
     // meta function, pulls the rest into one
     this.button_click = function(name, id) {
-        //this.set_last_clicked(name);
+        this.set_last_clicked(name);
         this.disable_current(id);
-        //this.enable_next(name);
+        this.enable_next(name);
     };
 
     var self = this;

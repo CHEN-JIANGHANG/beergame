@@ -16,8 +16,162 @@ from beergame.models import Game, Team, Period
 from beergame.forms import GameForm
 from jain import settings
 
+class GameError(Exception):
+    def __init__(self, error):
+        self.error = error
+    def __str__(self):
+        return repr(self.error)
+    
+
+def _calculate_period_cost(inv, bl):
+    """
+    inv: integer value for inventory
+    bl: integer value for backlog
+    returns period cost calculation
+    """
+    return (inv * .5) + bl 
+
+def _get_int(val):
+    """
+    val: string representation of a base 10 integer value
+    return integer or GameError exception
+    """
+    # catch any ints and just return
+    if type(val) == int:
+        return val
+
+    # attempt to convert to int
+    try:
+        return int(val, 10) 
+    except TypeError, err:
+        raise GameError('Error trying to parse string into integer: %s' % err)
+    except Exception, err:
+        raise GameError(err)
+
+def _check_period_consistency(team_or_int, period):
+    """
+    team_or_int: team object or integer
+    period: period value from client
+    raises exception if there is inconsistency
+    """
+
+    if type(team_or_int) == int or\
+        type(team_or_int) == long:
+        db_period = team_or_int
+    else:
+        # grab the last period in the database
+        team_period = Period.objects.filter(team=team_or_int).order_by('-number')[0]
+        db_period = team_period.number
+
+    # compare the database period to the one received from 
+    # the client app
+    client_period = _get_int(period)
+
+    if db_period != client_period: 
+        raise GameError('Period in database (%d) differs from the one sent from the web client (%d)' % (db_period, client_period))
+
+def _can_ship(game, role, client_period):
+    """
+    game: the current game object
+    role: text representation of team i.e. Retailer
+    period: the integer value for current period (for error checking)
+    returns boolean True = can ship, False = cannot ship
+        or GameError if invalid state
+    """
+    this_team = get_object_or_404(Team, game=game, role=role)   
+
+    # check consistency of this team
+    _check_period_consistency(this_team, client_period)
+    
+    # verify that the last clicked button was step2 (the one before ship)
+    if this_team.last_clicked_button != 'step2':
+        raise GameError('Cannot ship.  Team has not clicked Step 2 button.'+\
+                        'Last clicked button is %s' % (team.last_clicked_button))
+
+    # retailers can always ship, since they are not actually shipping
+    # to an object (customers don't exist in database)
+    if role == 'Retailer':
+        return True
+
+    downstream_roles = {'Factory':'Distributor',
+                        'Distributor':'Wholesaler',
+                        'Wholesaler':'Retailer'}
+
+    downstream_team = get_object_or_404(Team, game=game, 
+                            role=downstream_roles[role])   
+
+
+    period = Period.objects.filter(team=downstream_team).order_by('-number')[0]
+
+    # Check consistency of downstream team
+    #
+    # If period is inconsistent then we cannot ship.
+    # This will usually happen when another team has not
+    # yet started the next period.
+    #
+    # For example: Factory just started on period 1, clicked the start
+    # game button (created the period 1 object in db), clicked step 1 to
+    # increment shipment, clicked step 2 to move the order, and now wants
+    # to know if it can ship.  If Distributor has not started the period,
+    # we cannot ship yet. 
+    try:
+        _check_period_consistency(period.number, client_period)
+    except GameError, err:
+        return False
+
+    if period.shipment_2 == None:
+        return True
+
+    return False # cannot ship
+
+def _can_order(game, role, client_period):
+    """
+    Determines whether a team can place an order with
+    the upstream team.
+    """
+    client_period = _get_int(client_period)
+
+    this_team = get_object_or_404(Team, game=game, role=role)   
+
+    # check consistency of this team
+    _check_period_consistency(this_team, client_period)
+
+    # check that the last button pressed is correct for ordering
+    if this_team.last_clicked_button != 'step3':
+        raise GameError('Cannot order.  Team has not clicked Step 3 button.'+\
+                        'Last clicked button is %s' % (team.last_clicked_button))
+
+    # Factory is a shortcut since it orders from itself
+    if role == 'Factory':
+        return True
+
+
+    upstream_roles = {'Distributor':'Factory',
+                        'Wholesaler':'Distributor',
+                        'Retailer':'Wholesaler'}
+
+    upstream_team = get_object_or_404(Team, game=game, role=upstream_roles[role])   
+
+    # The actual check to see if the other team has pressed
+    # the step 2 button, so that another a place for another order
+    # has been made.
+    period = Period.objects.filter(team=upstream_team).order_by('-number')[0] 
+
+    # We need to be on the same period to be able to order
+    try:
+        _check_period_consistency(period.number, client_period)
+    except GameError, err:
+        return False
+
+    if period.order_2 == None:
+        return True
+    
+    return False
 
 def start(request):
+    """
+    Displays the homepage with possible games to join
+    """
     # grab games started in the last hour
     hour_before = datetime.now() - timedelta(hours=72) 
     games = Game.objects.filter(make_available=True)
@@ -29,6 +183,12 @@ def start(request):
                                 context_instance=RequestContext(request))
 @login_required
 def create_game(request):
+    """
+    Creates a new game
+    Do not create games through the database
+    because teams will not get created.
+    """
+    # TODO create teams on creation of game (do in database layer)
     game = Game()
     game_form = GameForm(request.POST, instance=game)
 
@@ -45,6 +205,11 @@ def create_game(request):
     return render_to_response('create_game.html', {'game': game})
 
 def join_game(request, game):
+    """
+    After a user has selected a game to join, this displays
+    the possible roles they can join as: Factory, Distributor, 
+    Wholesaler, Retailer
+    """
     game = get_object_or_404(Game, pk=game)
 
     roles = Team.ROLE_CHOICES 
@@ -55,6 +220,10 @@ def join_game(request, game):
                                                 context_instance=RequestContext(request)) 
 
 def game(request, game, role):
+    """
+    Main game.  This is where players will
+    actual play the game and interact with each other.
+    """
     game = get_object_or_404(Game, pk=game)
 
     # get team
@@ -120,10 +289,17 @@ def _get_order2_html(game, role, data):
     return render_to_string('order_2.html', {'period': period}) 
 
 def ajax(request, game, role):
+    # shared data between all ajax calls
     game = get_object_or_404(Game, pk=game)
-    
     data = request.REQUEST.copy()
 
+    #
+    # GET
+    #
+    # Retrieves values from the database
+    # * shipment_2
+    #   * gets the value of shipment_2
+    #
     if data.has_key('period') and data.has_key('get'):
         # XXX this api functionality could be used for 
         # players to cheat.  FIX: limit what things can be grabbed 
@@ -165,33 +341,57 @@ def ajax(request, game, role):
             return HttpResponse(json.dumps({'inventory':latest_period.inventory}), 
                 mimetype='text/javascript')
 
+    #
+    # CHECKS
+    #
+    # Section for performing various checks
+    # Checks usually occur when we are waiting for state 
+    # to change in order to do something
+    #
+    #   * teams_ready: waiting for other teams to finish period
+    #   so we can start the next one
+    #
+    #   * can_ship: waiting for downstream team to increment the incoming
+    #   shipments by pushing Step 1 button, clearing Shipment 2 slot
+    #
     elif data.has_key('period') and data.has_key('check'):
+        # setting period as we'll use this in various spots
+        # for consistency checks
+        client_period = _get_int(data['period'])
+
+        #
+        # CHECK -- teams_ready
+        # Returns whether the all teams are finished with the current period.
+        # If the teams are not all ready, it returns the roles of the teams that
+        # are not ready.
+        #
         if data['check'] == 'teams_ready':
             teams = Team.objects.filter(game=game)
             not_ready = []
             ready = []
-            for team in teams:
-                if team.role == role:
+            for check_team in teams:
+                if check_team.role == role:
                     continue
                 # removed print statements mod_wsgi restricted sys.stdout access
                 # game just started
                 # or
                 # teams have all clicked order during the current period
                 if int(data['period']) == 0:
-                    #print '%s ready because period is zero'
-                    ready.append(team.role)
-                elif (team.last_completed_period == int(data['period']) - 1 and \
-                    team.last_clicked_button == 'order'):
+                    #print '%s ready because period is zero' % (check_team.role)
+                    ready.append(check_team.role)
+                elif (check_team.last_completed_period == (int(data['period']) - 1) and \
+                    check_team.last_clicked_button == 'order'):
                     #print '%s ready because last_clicked was order and last finished \
-                    #    period was %s' % (role, data['period'])
-                    ready.append(team.role)
-                elif (team.last_completed_period == int(data['period'])):
-                    #print '%s was ready because last completed the current period'
-                    ready.append(team.role)
+                        period was %s' % (check_team.role, data['period'])
+                    ready.append(check_team.role)
+                elif (check_team.last_completed_period == int(data['period'])):
+                    #print '%s was ready because last completed the current period' % (check_team.role)
+                    ready.append(check_team.role)
                 else:
-                    #print '%s was not ready: last_clicked: %s and last_completed: %s' \
-                    #        % (role, team.last_clicked_button, team.last_completed_period)
-                    not_ready.append(team.role)
+                    #print '%s was not ready: last_clicked: %s and last_completed: %s and cur period: %s' \
+                            % (check_team.role, check_team.last_clicked_button, 
+                            check_team.last_completed_period, data['period'])
+                    not_ready.append(check_team.role)
 
             if len(not_ready) > 0:
                 return HttpResponse(json.dumps( {
@@ -204,49 +404,22 @@ def ajax(request, game, role):
                         mimetype='text/javascript')
 
         elif data['check'] == 'can_ship':
-            if role == 'Retailer':
-                return HttpResponse(json.dumps({'can_ship':True}),
-                        mimetype='text/javascript')
+            can_ship = _can_ship(game, role, client_period)
+            return HttpResponse(json.dumps({'can_ship':can_ship}),
+                    mimetype='text/javascript')
 
-            downstream_roles = {'Factory':'Distributor',
-                                'Distributor':'Wholesaler',
-                                'Wholesaler':'Retailer'}
-
-            team = get_object_or_404(Team, game=game, role=downstream_roles[role])   
-            period = Period.objects.filter(team=team).order_by('-number')[0]
-
-            if period.shipment_2 == None:
-                return HttpResponse(json.dumps({'can_ship':True}),
-                        mimetype='text/javascript')
-
-            return HttpResponse(json.dumps({'can_ship':False}),
-                     mimetype='text/javascript')
-
+        #
+        # CHECK -- can_order
+        # returns http response whether the team
+        # can submit an order
+        #
         elif data['check'] == 'can_order':
-            if role == 'Factory':
-                return HttpResponse(json.dumps({'can_order':True}),
+            can_order = _can_order(game, role, data['period'])
+            return HttpResponse(json.dumps({'can_order': can_order}),
                         mimetype='text/javascript')
 
-            upstream_roles = {'Distributor':'Factory',
-                                'Wholesaler':'Distributor',
-                                'Retailer':'Wholesaler'}
-
-            team = get_object_or_404(Team, game=game, role=upstream_roles[role])   
-
-            #if team.last_completed_period != (int(data['period'])-1):
-            #    return HttpResponse(json.dumps({'error':'period inconsistency'}),
-            #            mimetype='text/javascript')
-
-            try:
-                period = Period.objects.filter(team=team).filter(number=int(data['period']))[0] 
-                return HttpResponse(json.dumps({'can_order':period.order_2 == None}),
-                        mimetype='text/javascript')
-
-            # other team hasn't started period yet
-            except IndexError:
-                return HttpResponse(json.dumps({'can_order': False}),
-                        mimetype='text/javascript')
-
+        # finally throw an error
+        # TODO describe error condition better
         return HttpResponse(json.dumps({'error': 'check argument not valid'}),
                     mimetype='text/javascript')
 
@@ -277,8 +450,16 @@ def ajax(request, game, role):
         # start
         if data['step'] == 'start':
 
-            team.last_completed_period = int(data['period'])
-            team.save()
+            # When teams first start, it doesn't make sense to increment the 
+            # last completed period.
+            # At period 0, we don't want to increment yet
+            # At period the end of period 1, we'll increment to 1 as 
+            # they are starting period 2
+            if team.last_completed_period != 0 or team.last_clicked_button != 'none':
+                team.last_completed_period += 1 
+                team.save()
+            else:
+                #print 'not increment last_completed_period -- last_completed_period: %d -- last_clicked_button %s' % (team.last_completed_period, team.last_clicked_button)
 
             per = int(data['period'])
             latest_period = Period.objects.filter(team=team).order_by('-number')[0]
@@ -367,6 +548,14 @@ def ajax(request, game, role):
             _set_last_clicked(game, role, "step3")
             return render_to_response('period_table.html', {'all_periods':all_periods}) 
              
+    #
+    # Ship button is pressed and we are trying to ship downstream
+    # Factory => Distributor
+    # Distributor => Wholesaler
+    # Wholesaler => Factory
+    # Factory => Customer
+    #   * in the program, there is no customer object so it basically just disappears
+    #
     elif data.has_key('shipment') and data.has_key('period'):
         # TODO test whether can_ship is true
 

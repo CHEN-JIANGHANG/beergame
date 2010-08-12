@@ -382,15 +382,15 @@ def ajax(request, game, role):
                 elif (check_team.last_completed_period == (int(data['period']) - 1) and \
                     check_team.last_clicked_button == 'order'):
                     #print '%s ready because last_clicked was order and last finished \
-                        period was %s' % (check_team.role, data['period'])
+                        #period was %s' % (check_team.role, data['period'])
                     ready.append(check_team.role)
                 elif (check_team.last_completed_period == int(data['period'])):
                     #print '%s was ready because last completed the current period' % (check_team.role)
                     ready.append(check_team.role)
                 else:
                     #print '%s was not ready: last_clicked: %s and last_completed: %s and cur period: %s' \
-                            % (check_team.role, check_team.last_clicked_button, 
-                            check_team.last_completed_period, data['period'])
+                            #% (check_team.role, check_team.last_clicked_button, 
+                            #check_team.last_completed_period, data['period'])
                     not_ready.append(check_team.role)
 
             if len(not_ready) > 0:
@@ -459,6 +459,7 @@ def ajax(request, game, role):
                 team.last_completed_period += 1 
                 team.save()
             else:
+                pass
                 #print 'not increment last_completed_period -- last_completed_period: %d -- last_clicked_button %s' % (team.last_completed_period, team.last_clicked_button)
 
             per = int(data['period'])

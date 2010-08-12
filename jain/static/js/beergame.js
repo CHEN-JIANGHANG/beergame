@@ -237,9 +237,9 @@ var BeerGame = function() {
     };
 
     this.get_backlog = function() {
-        if (this.backlog !== undefined) {
-            return this.backlog;
-        }
+        //if (this.backlog !== undefined) {
+        //    return this.backlog;
+        //}
         this._reset_backlog();
         return this.backlog;
     };
@@ -860,7 +860,7 @@ $(document).ready(function() {
         $('.button').attr('disabled',true);
 
         // activate game by creating beergame object
-        var beerGame = new BeerGame(); 
+        window.beerGame = new BeerGame(); 
 
     }
 

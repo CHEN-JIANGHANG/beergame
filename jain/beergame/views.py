@@ -495,6 +495,10 @@ def ajax(request, game, role):
                 return HttpResponse(json.dumps({'error':'periods are incorrect'}),
                         mimetype='text/javascript')
 
+            # XXX if there is a problem with shipment not getting to the right place
+            # we get a None introduced into inventory
+            # FIXME do a check here
+            # adding shipment_1 when None breaks the game
             period.inventory = period.inventory + period.shipment_1
             period.shipment_1 = period.shipment_2
             period.shipment_2 = None

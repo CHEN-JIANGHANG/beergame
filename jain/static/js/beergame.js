@@ -849,6 +849,7 @@ var BeerGame = function() {
 
 $(document).ready(function() {
     /* VISUAL ELEMENTS */
+    $('#amt_to_ship').attr('disabled', true);
     $('.step_wrapper').corner("10px"); // for dark gray rounded corners
     $('.step').corner("8px"); // for light gray rounded corners 
     $('.lead_tile').corner(); // for orange rounded corners

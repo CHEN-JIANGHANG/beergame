@@ -8,9 +8,9 @@ sys.path.append(workspace)
 
 #Add the path to 3rd party django application and to django itself.
 sys.path.append('/home/taylor/django-src/')
-sys.path.append('/home/taylor/beergame/jain/')
+sys.path.append('/home/taylor/beergame/')
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'jain.settings'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'beergame.settings'
 import django.core.handlers.wsgi
 application = django.core.handlers.wsgi.WSGIHandler()
 

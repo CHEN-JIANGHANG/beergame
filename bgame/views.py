@@ -12,9 +12,9 @@ from django.contrib.auth import logout
 
 from django.forms.models import modelformset_factory
 
-from beergame.models import Game, Team, Period
-from beergame.forms import GameForm
-from jain import settings
+from bgame.models import Game, Team, Period
+from bgame.forms import GameForm
+from beergame import settings
 
 class GameError(Exception):
     def __init__(self, error):

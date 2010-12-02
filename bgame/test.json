@@ -329,7 +329,7 @@
         "fields": {
             "model": "game", 
             "name": "game", 
-            "app_label": "beergame"
+            "app_label": "bgame"
         }
     }, 
     {
@@ -365,7 +365,7 @@
         "fields": {
             "model": "period", 
             "name": "period", 
-            "app_label": "beergame"
+            "app_label": "bgame"
         }
     }, 
     {
@@ -401,7 +401,7 @@
         "fields": {
             "model": "team", 
             "name": "team", 
-            "app_label": "beergame"
+            "app_label": "bgame"
         }
     }, 
     {
@@ -423,7 +423,7 @@
     }, 
     {
         "pk": 1, 
-        "model": "beergame.game", 
+        "model": "bgame.game", 
         "fields": {
             "date_started": "2009-10-15 23:24:29", 
             "name": "test"
@@ -431,7 +431,7 @@
     }, 
     {
         "pk": 1, 
-        "model": "beergame.team", 
+        "model": "bgame.team", 
         "fields": {
             "game": 1, 
             "role": "Factory", 
@@ -441,7 +441,7 @@
     }, 
     {
         "pk": 2, 
-        "model": "beergame.team", 
+        "model": "bgame.team", 
         "fields": {
             "game": 1, 
             "role": "Distributor", 
@@ -451,7 +451,7 @@
     }, 
     {
         "pk": 3, 
-        "model": "beergame.team", 
+        "model": "bgame.team", 
         "fields": {
             "game": 1, 
             "role": "Wholesaler", 
@@ -461,7 +461,7 @@
     }, 
     {
         "pk": 4, 
-        "model": "beergame.team", 
+        "model": "bgame.team", 
         "fields": {
             "game": 1, 
             "role": "Retailer", 
@@ -471,7 +471,7 @@
     }, 
     {
         "pk": 1, 
-        "model": "beergame.period", 
+        "model": "bgame.period", 
         "fields": {
             "cost": "0.00", 
             "team": 1, 
@@ -490,7 +490,7 @@
     }, 
     {
         "pk": 2, 
-        "model": "beergame.period", 
+        "model": "bgame.period", 
         "fields": {
             "cost": "0.00", 
             "team": 2, 
@@ -509,7 +509,7 @@
     }, 
     {
         "pk": 3, 
-        "model": "beergame.period", 
+        "model": "bgame.period", 
         "fields": {
             "cost": "0.00", 
             "team": 3, 
@@ -528,7 +528,7 @@
     }, 
     {
         "pk": 4, 
-        "model": "beergame.period", 
+        "model": "bgame.period", 
         "fields": {
             "cost": "0.00", 
             "team": 4, 

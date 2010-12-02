@@ -7,8 +7,8 @@ Replace these with more appropriate tests for your application.
 from django.test import TestCase
 from django.test.client import Client
 
-from beergame.models import Game, Team, Period
-from beergame.views import _calculate_period_cost
+from bgame.models import Game, Team, Period
+from bgame.views import _calculate_period_cost
 
 class SimpleTest(TestCase):
     def test_basic_addition(self):

@@ -578,7 +578,7 @@ var BeerGame = function() {
                         var ship2_div = $('#shipment2');
                         ship2_div.attr('id','shipment1');
                         $('#ship2_amt').attr('id','ship1_amt');
-                        $('#shipment1 > h4').text('Shipment1'); 
+                        $('#shipment1 > h4').text('Shipment #1');
                         $('#shipment1').after(data.html);
                         $('#shipment2').corner();
                       
